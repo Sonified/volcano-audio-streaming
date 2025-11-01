@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeedLink → AudioWorklet Sine Wave Mapping Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            color: #ffdd88;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            position: relative;
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            color: #00d4ff;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-connected {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+        
+        .status-disconnected {
+            background: #ff4444;
+            box-shadow: 0 0 10px #ff4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-label {
+            color: #a0c4ff;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #ffffff;
+        }
+        
+        .info {
+            background: rgba(0, 212, 255, 0.2);
+            border-left: 4px solid #00d4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9em;
+        }
+        
+        .station-info {
+            font-size: 1.5em;
+            text-align: center;
+            padding: 10px;
+            background: rgba(0, 212, 255, 0.2);
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+        
+        button:hover:not(:disabled) {
+            background: rgba(0, 212, 255, 0.5);
+            transform: translateY(-1px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        button.active {
+            background: rgba(0, 255, 136, 0.5);
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.7);
+        }
+        
+        /* Range slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        /* Webkit - Track */
+        input[type="range"]::-webkit-slider-track {
+            background: rgba(255, 255, 255, 0.2);
+            height: 6px;
+            border-radius: 3px;
+        }
+        
+        /* Webkit - Thumb */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #00d4ff;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
+        }
+        
+        /* Firefox - Track */
+        input[type="range"]::-moz-range-track {
+            background: rgba(255, 255, 255, 0.2);
+            height: 6px;
+            border-radius: 3px;
+        }
+        
+        /* Firefox - Thumb */
+        input[type="range"]::-moz-range-thumb {
+            background: #00d4ff;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #00ff88;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌋 SeedLink → AudioWorklet Mapping Test</h1>
+        <div class="subtitle">Sine wave with FM (110-220 Hz) or static frequency (100-500 Hz) • Amplitude controlled by live seismic data</div>
+        
+        <div class="grid">
+            <!-- Audio Control Card -->
+            <div class="card">
+                <h2>AudioWorklet Sine Generator</h2>
+                <div style="text-align: center; padding: 20px;">
+                    <button id="start-audio-btn" onclick="startAudioWorklet()" style="font-size: 1.2em; padding: 15px 30px;">
+                        🎵 Start AudioWorklet
+                    </button>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">AudioWorklet Status:</span>
+                    <span class="stat-value" id="audioworklet-status">Not Started</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Current Frequency:</span>
+                    <span class="stat-value" id="current-frequency">-- Hz</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Current Amplitude:</span>
+                    <span class="stat-value" id="current-amplitude">--</span>
+                </div>
+                <div class="info">
+                    Generates sine wave at 110-220 Hz with amplitude 0-1, controlled by live SeedLink data. No pops!
+                </div>
+            </div>
+            
+            <!-- Connection Status Card -->
+            <div class="card">
+                <h2>SeedLink Connection</h2>
+                <div class="station-info">
+                    <span class="status-indicator" id="status-indicator"></span>
+                    <span id="station-display">Connecting...</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Network:</span>
+                    <span class="stat-value" id="network">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Station:</span>
+                    <span class="stat-value" id="station">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Channel:</span>
+                    <span class="stat-value" id="channel">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Last Update:</span>
+                    <span class="stat-value" id="last-update">--</span>
+                </div>
+            </div>
+            
+            <!-- Signal Processing Card -->
+            <div class="card">
+                <h2>Control Signal (0-1 Range)</h2>
+                <div class="stat-row">
+                    <span class="stat-label">Raw Amplitude:</span>
+                    <span class="stat-value" id="raw-amplitude">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Mapped (0-1):</span>
+                    <span class="stat-value" id="mapped-amplitude">--</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Smoothing Time:</span>
+                    <span class="stat-value" id="smoothing-time">--</span>
+                </div>
+                <div class="info">
+                    SeedLink amplitude [-1, 1] mapped to [0, 1] for controlling sine wave frequency and amplitude.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Amplitude Display -->
+        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 15px; margin-top: 20px;">
+            <!-- Left: Waveform -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #00ff88;">SeedLink Waveform</h2>
+                </div>
+                <div style="border-radius: 5px; padding: 0;">
+                    <canvas id="waveform-raw" style="width: 100%; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; display: block;"></canvas>
+                </div>
+                
+                <!-- Mode Control Row -->
+                <div style="margin-top: 15px; padding: 15px; background: rgba(0, 0, 0, 0.2); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                        <!-- Mode Toggle -->
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="color: #a0c4ff; font-weight: 600;">Mode:</label>
+                            <button id="mode-fm-btn" onclick="setMode('fm')" class="active" style="padding: 8px 16px; font-size: 0.9em;">
+                                📡 Frequency Modulation
+                            </button>
+                            <button id="mode-static-btn" onclick="setMode('static')" style="padding: 8px 16px; font-size: 0.9em;">
+                                🎵 Static Frequency
+                            </button>
+                        </div>
+                        
+                        <!-- Static Frequency Slider (hidden by default) -->
+                        <div id="static-freq-controls" style="display: none; align-items: center; gap: 10px; flex: 1; min-width: 300px;">
+                            <label for="static-frequency" style="color: #a0c4ff; font-weight: 600; white-space: nowrap;">
+                                Frequency: <span id="static-freq-value">300</span> Hz
+                            </label>
+                            <input type="range" id="static-frequency" min="100" max="500" step="1" value="300" oninput="updateStaticFrequency()" style="flex: 1; min-width: 200px; max-width: 400px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right: Live Amplitude (0-1 range) -->
+            <div class="card">
+                <h2 style="font-size: 1.1em; margin: 0 0 10px 0; color: #00ff88;">Live Control (0-1)</h2>
+                <div style="display: flex; gap: 8px;">
+                    <!-- Amplitude display box -->
+                    <div style="position: relative; flex: 1; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; overflow: hidden;">
+                        <!-- Zero line (at bottom now) -->
+                        <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
+                        <!-- Moving amplitude line (0 at bottom, 1 at top) -->
+                        <div id="amplitude-line-mapped" style="position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00ff88, #00ff88); transition: bottom 0.05s ease-out; box-shadow: 0 0 10px #00ff88; bottom: 0;"></div>
+                        <!-- Live amplitude value in lower right corner -->
+                        <div style="position: absolute; bottom: 8px; right: 8px; font-size: 1.6em; color: #00ff88; background: rgba(0, 0, 0, 0.6); padding: 4px 8px; border-radius: 4px; pointer-events: none; font-weight: bold;">
+                            <span id="live-amplitude-mapped">0.000</span>
+                        </div>
+                    </div>
+                    <!-- Y-axis labels on right (0 at bottom, 1 at top) -->
+                    <div style="display: flex; flex-direction: column; justify-content: space-between; font-size: 0.75em; color: #a0c4ff; padding-top: 2px; padding-bottom: 2px;">
+                        <span>1.0</span>
+                        <span>0.5</span>
+                        <span>0.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // AudioWorklet state
+        let audioContext = null;
+        let sineWorkletNode = null;
+        let audioWorkletActive = false;
+        
+        // SeedLink polling state
+        let lastPacketCount = 0;
+        let lastUpdateTime = null;
+        
+        // Mode state
+        let currentMode = 'fm'; // 'fm' or 'static'
+        let staticFrequency = 300; // Hz
+        
+        // Buffer state (like index.html)
+        let seismicBuffer = []; // Local buffer of raw samples
+        let playbackPosition = 0; // Current position in buffer (absolute index)
+        let lastFetchedIndex = 0; // Track how many samples we've fetched
+        let seismicSampleRate = 100; // Hz (will be updated from API)
+        
+        // Smoothing state (applied as we step through buffer)
+        let smoothingTime = 0.5; // 500ms time constant
+        let smoothedValue = 0.0; // Current smoothed output
+        let smoothingAlpha = 0; // Will be calculated
+        
+        // Canvas for waveform
+        const canvasRaw = document.getElementById('waveform-raw');
+        const ctxRaw = canvasRaw.getContext('2d');
+        
+        // Set canvas size
+        function resizeCanvas() {
+            canvasRaw.width = canvasRaw.offsetWidth;
+            canvasRaw.height = canvasRaw.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // AudioWorklet processor code (sine wave generator with smooth parameter interpolation)
+        const sineWorkletCode = `
+            class SineGenerator extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.phase = 0;
+                    
+                    // Target values (set by messages)
+                    this.targetFrequency = 165; // Start at middle (110 + 220) / 2
+                    this.targetAmplitude = 0.5; // Start at middle
+                    
+                    // Current values (smoothed)
+                    this.currentFrequency = 165;
+                    this.currentAmplitude = 0.5;
+                    
+                    // Smoothing coefficients (exponential moving average)
+                    // Browser now does smoothing at seismic rate, so this is just anti-click protection
+                    this.frequencySmoothingAlpha = 0.05; // Very fast - just prevents audible clicks
+                    this.amplitudeSmoothingAlpha = 0.1; // Even faster for amplitude
+                    
+                    this.sampleRate = 44100;
+                    
+                    this.port.onmessage = (event) => {
+                        const { type, frequency, amplitude } = event.data;
+                        
+                        if (type === 'update') {
+                            if (frequency !== undefined) {
+                                this.targetFrequency = frequency;
+                            }
+                            if (amplitude !== undefined) {
+                                this.targetAmplitude = amplitude;
+                            }
+                        }
+                    };
+                }
+                
+                process(inputs, outputs, parameters) {
+                    const output = outputs[0];
+                    const channel = output[0];
+                    
+                    for (let i = 0; i < channel.length; i++) {
+                        // Exponentially smooth frequency and amplitude towards target
+                        // y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+                        this.currentFrequency = this.frequencySmoothingAlpha * this.targetFrequency + 
+                                                (1 - this.frequencySmoothingAlpha) * this.currentFrequency;
+                        this.currentAmplitude = this.amplitudeSmoothingAlpha * this.targetAmplitude + 
+                                                (1 - this.amplitudeSmoothingAlpha) * this.currentAmplitude;
+                        
+                        // Generate sine wave with smoothed parameters
+                        channel[i] = Math.sin(this.phase) * this.currentAmplitude * 0.3; // Scale down to 30% max volume
+                        
+                        // Advance phase using smoothed frequency (continuous phase, no clicks!)
+                        this.phase += (2 * Math.PI * this.currentFrequency) / this.sampleRate;
+                        
+                        // Wrap phase to avoid precision issues
+                        if (this.phase > 2 * Math.PI) {
+                            this.phase -= 2 * Math.PI;
+                        }
+                    }
+                    
+                    return true; // Keep processor alive
+                }
+            }
+            
+            registerProcessor('sine-generator', SineGenerator);
+        `;
+        
+        // Start AudioWorklet
+        async function startAudioWorklet() {
+            try {
+                const btn = document.getElementById('start-audio-btn');
+                btn.disabled = true;
+                btn.textContent = '🔄 Starting...';
+                
+                // Create AudioContext
+                audioContext = new AudioContext({ sampleRate: 44100 });
+                
+                // Load AudioWorklet processor
+                const workletBlob = new Blob([sineWorkletCode], { type: 'application/javascript' });
+                await audioContext.audioWorklet.addModule(URL.createObjectURL(workletBlob));
+                
+                // Create worklet node
+                sineWorkletNode = new AudioWorkletNode(audioContext, 'sine-generator');
+                
+                // Connect to output
+                sineWorkletNode.connect(audioContext.destination);
+                
+                audioWorkletActive = true;
+                
+                // Update UI
+                btn.textContent = '✓ AudioWorklet Running';
+                btn.classList.add('active');
+                document.getElementById('audioworklet-status').textContent = 'Running';
+                document.getElementById('audioworklet-status').style.color = '#00ff88';
+                
+                console.log('✅ AudioWorklet started successfully');
+                
+                // Start polling SeedLink data
+                startSeedLinkPolling();
+                
+            } catch (error) {
+                console.error('❌ Error starting AudioWorklet:', error);
+                const btn = document.getElementById('start-audio-btn');
+                btn.disabled = false;
+                btn.textContent = '❌ Failed - Try Again';
+            }
+        }
+        
+        // Calculate smoothing alpha from time constant
+        function calculateSmoothingAlpha() {
+            // alpha = dt / (dt + tau), where dt = sample period, tau = time constant
+            const dt = 1.0 / seismicSampleRate;
+            smoothingAlpha = dt / (dt + smoothingTime);
+            console.log(`Smoothing: time=${smoothingTime}s, alpha=${smoothingAlpha.toFixed(6)}, rate=${seismicSampleRate}Hz`);
+        }
+        
+        // Fetch raw chunks from backend and append to buffer
+        async function fetchSeismicChunks() {
+            try {
+                const response = await fetch('http://localhost:8888/api/get_raw_chunk');
+                const data = await response.json();
+                
+                if (data.samples && data.samples.length > 0) {
+                    // Update sample rate if changed
+                    if (data.sample_rate && data.sample_rate !== seismicSampleRate) {
+                        seismicSampleRate = data.sample_rate;
+                        calculateSmoothingAlpha();
+                    }
+                    
+                    // Append new samples to buffer
+                    const beforeLength = seismicBuffer.length;
+                    seismicBuffer.push(...data.samples);
+                    
+                    console.log(`📦 Received ${data.samples.length} samples | Buffer: ${beforeLength} → ${seismicBuffer.length}`);
+                    
+                    // Trim buffer if too large (keep last 10000 samples = 100 seconds at 100Hz)
+                    if (seismicBuffer.length > 10000) {
+                        const trimAmount = seismicBuffer.length - 10000;
+                        seismicBuffer.splice(0, trimAmount);
+                        playbackPosition = Math.max(0, playbackPosition - trimAmount);
+                        console.log(`✂️ Trimmed ${trimAmount} old samples, buffer now ${seismicBuffer.length}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching seismic chunks:', error);
+            }
+        }
+        
+        // Step through buffer and apply smoothing
+        function processBufferStep() {
+            if (!audioWorkletActive || !sineWorkletNode || seismicBuffer.length === 0) return;
+            
+            // Check if we have NEW data to read (haven't caught up to buffer end)
+            if (playbackPosition >= seismicBuffer.length) {
+                // Caught up to buffer end - hold last value and wait for more data
+                console.log(`⏸️ Caught up! Position: ${playbackPosition}, Buffer: ${seismicBuffer.length}`);
+                return; // Don't advance, just wait for more data
+            }
+            
+            // Get raw sample from buffer at current position
+            const rawSample = seismicBuffer[Math.floor(playbackPosition)];
+            
+            // Apply exponential smoothing: y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+            smoothedValue = smoothingAlpha * rawSample + (1 - smoothingAlpha) * smoothedValue;
+            
+            // Map from [-1, 1] to [0, 1]
+            const mappedAmplitude = (smoothedValue + 1.0) / 2.0;
+            
+            // Determine frequency based on mode
+            let frequency;
+            if (currentMode === 'fm') {
+                // Map to frequency: 0 → 110 Hz, 1 → 220 Hz
+                frequency = 110 + (mappedAmplitude * 110);
+            } else {
+                // Static mode: use slider value
+                frequency = staticFrequency;
+            }
+            
+            // Map to amplitude: 0 → 0.0, 1 → 1.0
+            const amplitude = mappedAmplitude;
+            
+            // Send to AudioWorklet
+            sineWorkletNode.port.postMessage({
+                type: 'update',
+                frequency: frequency,
+                amplitude: amplitude
+            });
+            
+            // Update UI (throttled to ~30fps for performance)
+            if (Math.random() < 0.3) {
+                document.getElementById('raw-amplitude').textContent = rawSample.toFixed(3);
+                document.getElementById('mapped-amplitude').textContent = mappedAmplitude.toFixed(3);
+                document.getElementById('current-frequency').textContent = frequency.toFixed(1) + ' Hz';
+                document.getElementById('current-amplitude').textContent = amplitude.toFixed(3);
+                document.getElementById('live-amplitude-mapped').textContent = mappedAmplitude.toFixed(3);
+                
+                // Update amplitude line position (0 at bottom, 1 at top)
+                const lineElement = document.getElementById('amplitude-line-mapped');
+                const position = mappedAmplitude * 300;
+                lineElement.style.bottom = position + 'px';
+                
+                // Color based on magnitude
+                if (mappedAmplitude > 0.8) {
+                    lineElement.style.background = 'linear-gradient(90deg, #ff4444, #ff00ff)';
+                    lineElement.style.boxShadow = '0 0 15px #ff4444';
+                } else if (mappedAmplitude > 0.5) {
+                    lineElement.style.background = 'linear-gradient(90deg, #ffaa00, #ff00ff)';
+                    lineElement.style.boxShadow = '0 0 12px #ffaa00';
+                } else {
+                    lineElement.style.background = 'linear-gradient(90deg, #00ff88, #00ff88)';
+                    lineElement.style.boxShadow = '0 0 10px #00ff88';
+                }
+            }
+            
+            // Advance playback position (at seismic sample rate)
+            playbackPosition += 1;
+        }
+        
+        // Start fetching chunks and processing buffer
+        function startSeedLinkPolling() {
+            // Calculate smoothing parameters
+            calculateSmoothingAlpha();
+            
+            // Fetch chunks every 1 second (new data arrives ~every 5 seconds)
+            setInterval(fetchSeismicChunks, 1000);
+            
+            // Initial fetch
+            fetchSeismicChunks();
+            
+            // Step through buffer at seismic sample rate (100 Hz = every 10ms)
+            const stepInterval = 1000 / seismicSampleRate;
+            setInterval(processBufferStep, stepInterval);
+            
+            console.log(`▶️ Started: Fetching chunks every 1s, stepping at ${seismicSampleRate}Hz (${stepInterval.toFixed(1)}ms)`);
+        }
+        
+        // Set mode (fm or static)
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            const fmBtn = document.getElementById('mode-fm-btn');
+            const staticBtn = document.getElementById('mode-static-btn');
+            const staticControls = document.getElementById('static-freq-controls');
+            
+            if (mode === 'fm') {
+                fmBtn.classList.add('active');
+                staticBtn.classList.remove('active');
+                staticControls.style.display = 'none';
+                console.log('📡 Switched to Frequency Modulation mode');
+            } else {
+                fmBtn.classList.remove('active');
+                staticBtn.classList.add('active');
+                staticControls.style.display = 'flex';
+                console.log('🎵 Switched to Static Frequency mode:', staticFrequency, 'Hz');
+            }
+        }
+        
+        // Update static frequency from slider
+        function updateStaticFrequency() {
+            const slider = document.getElementById('static-frequency');
+            staticFrequency = parseFloat(slider.value);
+            document.getElementById('static-freq-value').textContent = staticFrequency;
+            console.log('🎚️ Static frequency set to:', staticFrequency, 'Hz');
+        }
+        
+        // Update SeedLink status
+        async function updateStatus() {
+            try {
+                const response = await fetch('http://localhost:8888/api/status');
+                const data = await response.json();
+                
+                // Update connection status
+                const indicator = document.getElementById('status-indicator');
+                if (data.connected) {
+                    indicator.className = 'status-indicator status-connected';
+                    document.getElementById('station-display').textContent = 
+                        `${data.network}.${data.station}.${data.channel}`;
+                } else {
+                    indicator.className = 'status-indicator status-disconnected';
+                    document.getElementById('station-display').textContent = 'Disconnected';
+                }
+                
+                // Update all stats
+                document.getElementById('network').textContent = data.network || '--';
+                document.getElementById('station').textContent = data.station || '--';
+                document.getElementById('channel').textContent = data.channel || '--';
+                
+                // Check if new packet arrived
+                const currentPackets = data.packets_received || 0;
+                if (currentPackets > lastPacketCount) {
+                    lastPacketCount = currentPackets;
+                    lastUpdateTime = Date.now();
+                    document.getElementById('last-update').textContent = '0s ago';
+                }
+                
+                // Update last update time display
+                if (lastUpdateTime !== null) {
+                    const secondsSinceUpdate = Math.floor((Date.now() - lastUpdateTime) / 1000);
+                    document.getElementById('last-update').textContent = `${secondsSinceUpdate}s ago`;
+                } else {
+                    document.getElementById('last-update').textContent = 'Waiting for first packet...';
+                }
+                
+                // Update smoothing time
+                if (data.smoothing_time !== undefined) {
+                    document.getElementById('smoothing-time').textContent = `${(data.smoothing_time * 1000).toFixed(0)}ms`;
+                }
+                
+            } catch (error) {
+                console.error('Error fetching status:', error);
+            }
+        }
+        
+        // Update waveform
+        async function updateWaveform() {
+            try {
+                const smoothedResponse = await fetch('http://localhost:8888/api/waveform_smoothed');
+                const smoothedData = await smoothedResponse.json();
+                
+                if (smoothedData.data && smoothedData.data.length > 0) {
+                    drawWaveform(ctxRaw, canvasRaw, smoothedData.data, '#00ff88', 'Smoothed');
+                }
+            } catch (error) {
+                console.error('Error fetching waveform:', error);
+            }
+        }
+        
+        function drawWaveform(ctx, canvas, data, color, label) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+            
+            // Draw waveform
+            if (data.length > 0) {
+                const maxAmplitude = Math.max(...data.map(Math.abs)) || 1;
+                const scale = (height * 0.4) / maxAmplitude;
+                const xStep = width / Math.max(data.length, 1);
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < data.length; i++) {
+                    const x = i * xStep;
+                    const y = centerY - (data[i] * scale);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.stroke();
+                
+                // Draw scale info
+                ctx.fillStyle = '#a0c4ff';
+                ctx.font = '12px monospace';
+                ctx.fillText(`${label} Max: ±${maxAmplitude.toFixed(3)}`, 10, 20);
+                ctx.fillText(`Samples: ${data.length}`, 10, 35);
+            }
+        }
+        
+        // Start periodic updates
+        setInterval(updateStatus, 500);
+        setInterval(updateWaveform, 500);
+        
+        // Initial update
+        updateStatus();
+        updateWaveform();
+    </script>
+</body>
+</html>

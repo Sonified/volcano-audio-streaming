@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chunk Viewer - SeedLink Waveform Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            color: #00d4ff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: #a0c4ff;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            color: #00ff88;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        #waveform-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            gap: 10px;
+        }
+        
+        #current-output-meter {
+            width: 60px;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            position: relative;
+            padding: 10px 5px;
+        }
+        
+        #meter-label {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7em;
+            color: #a0c4ff;
+            white-space: nowrap;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+        
+        #meter-track {
+            position: absolute;
+            top: 30px;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #meter-indicator {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, #ff4444 0%, #ffff44 50%, #44ff44 100%);
+            transition: height 0.05s ease;
+            border-radius: 10px;
+        }
+        
+        #meter-value {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.75em;
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        #waveform {
+            flex: 1;
+            height: 400px;
+            display: block;
+        }
+        
+        #scan-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, rgba(255, 0, 0, 0.8) 0%, rgba(255, 100, 100, 0.8) 100%);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 0, 0, 0.5);
+            pointer-events: none;
+            transition: left 0.01s linear;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.active {
+            background: rgba(0, 255, 136, 0.5);
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.7);
+        }
+        
+        .log-container {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .log-row {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            border-left: 3px solid #00d4ff;
+        }
+        
+        .log-row:last-child {
+            border-left-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+        
+        .log-header {
+            color: #00d4ff;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .log-values {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .log-section {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .log-label {
+            color: #a0c4ff;
+            font-size: 0.85em;
+            margin-bottom: 3px;
+        }
+        
+        .log-numbers {
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌋 Chunk Viewer - Waveform Scanner</h1>
+        
+        <!-- Stats Card -->
+        <div class="card">
+            <h2>Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Chunks Received</div>
+                    <div class="stat-value" id="chunk-count">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Received</div>
+                    <div class="stat-value" id="total-received">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Samples Remaining</div>
+                    <div class="stat-value" id="samples-remaining">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Playback Rate</div>
+                    <div class="stat-value">
+                        <input type="range" id="playback-rate-slider" min="1" max="200" value="100" 
+                               style="width: 100%; margin-bottom: 5px;"
+                               oninput="updatePlaybackRate(this.value)">
+                        <div id="playback-rate-display" style="font-size: 0.8em;">100 Hz</div>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Time Since Chunk</div>
+                    <div class="stat-value" id="time-since-chunk">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Waveform Card -->
+        <div class="card">
+            <h2>Waveform Display</h2>
+            <div id="waveform-container">
+                <!-- Current Output Meter -->
+                <div id="current-output-meter">
+                    <div id="meter-track">
+                        <div id="meter-indicator"></div>
+                    </div>
+                    <div id="meter-value">--</div>
+                </div>
+                
+                <!-- Waveform Canvas -->
+                <canvas id="waveform"></canvas>
+                <div id="scan-line"></div>
+            </div>
+            <div class="controls">
+                <button id="pause-btn" onclick="togglePause()">⏸️ Pause Scan</button>
+                <button id="reset-btn" onclick="resetBuffer()">🔄 Clear Buffer</button>
+            </div>
+        </div>
+        
+        <!-- Chunk Log Card -->
+        <div class="card">
+            <h2>Chunk Log</h2>
+            <div class="log-container" id="log-container">
+                <!-- Log rows will be added here dynamically
+                -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        const VISUAL_WINDOW = 8000;  // Fixed visualization window (8000 samples = 80 seconds at 100 Hz)
+        const MAX_BUFFER_SIZE = 50000;  // Maximum buffer size (500 seconds at 100 Hz)
+        let dataBuffer = [];  // Bounded buffer - keeps most recent MAX_BUFFER_SIZE samples
+        let totalSamplesReceived = 0;  // Total samples received from server (cumulative)
+        let totalSamplesPlayed = 0;  // Total samples played/consumed
+        let chunkCount = 0;
+        let sampleRate = 100;  // Hz (data from server)
+        let playbackRate = 100;  // Hz (playback speed - adjustable)
+        let isPaused = false;
+        let scanInterval = null;  // Store interval handle so we can restart it
+        let lastChunkId = -1;  // Track last chunk ID to detect new data
+        let chunkLog = [];  // Store chunk data for log display
+        let chunkBoundaries = [];  // Track positions where chunks end (for visual markers)
+        let lastChunkTime = null;  // Timestamp of last chunk arrival
+        
+        // Adaptive scaling (smooth exponential average over ~3 seconds)
+        let displayMin = 0;  // Current display minimum (smoothed)
+        let displayMax = 1;  // Current display maximum (smoothed)
+        let scaleInitialized = false;  // Track if we've done initial scaling
+        const SCALE_ALPHA = 0.01;  // Smoothing factor (lower = slower adaptation, ~3s time constant at 20fps)
+        
+        // Canvas
+        const canvas = document.getElementById('waveform');
+        const ctx = canvas.getContext('2d');
+        const scanLine = document.getElementById('scan-line');
+        
+        // Current output meter elements
+        const meterIndicator = document.getElementById('meter-indicator');
+        const meterValue = document.getElementById('meter-value');
+        
+        // Resize canvas
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            drawWaveform();
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Fetch chunks from backend
+        async function fetchChunk() {
+            try {
+                const response = await fetch('http://localhost:8889/api/get_chunk');
+                const data = await response.json();
+                
+                // Check if this is actually NEW data (not a duplicate)
+                if (data.chunk_id && data.chunk_id !== lastChunkId && data.samples && data.samples.length > 0) {
+                    // NEW chunk from IRIS!
+                    lastChunkId = data.chunk_id;
+                    
+                    // Add new chunk to the buffer at the current fill position
+                    const samplesToAdd = data.samples.length;
+                    chunkCount++;
+                    totalSamplesReceived += samplesToAdd;  // Track total received
+                    lastChunkTime = Date.now();  // Record when this chunk arrived
+                    
+                    // Add ALL samples to the internal buffer
+                    const beforeLength = dataBuffer.length;
+                    dataBuffer.push(...data.samples);
+                    const afterLength = dataBuffer.length;
+                    console.log(`📊 Buffer before: ${beforeLength}, after: ${afterLength}, added: ${data.samples.length}`);
+                    
+                    // Trim buffer if it exceeds maximum size (sliding window)
+                    if (dataBuffer.length > MAX_BUFFER_SIZE) {
+                        const excess = dataBuffer.length - MAX_BUFFER_SIZE;
+                        dataBuffer.splice(0, excess);  // Remove oldest samples
+                        
+                        // Adjust chunk boundaries (shift left by amount removed)
+                        chunkBoundaries = chunkBoundaries.map(b => b - excess).filter(b => b > 0);
+                        
+                        console.log(`📦 Buffer trimmed: removed ${excess} old samples, now at ${dataBuffer.length}/${MAX_BUFFER_SIZE}`);
+                    }
+                    
+                    // Mark the boundary where this chunk ended (in absolute buffer position)
+                    chunkBoundaries.push(dataBuffer.length);
+                    
+                    // Store chunk info for log
+                    chunkLog.push({
+                        id: data.chunk_id,
+                        count: chunkCount,
+                        samples: data.samples,  // Store the ENTIRE chunk array
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+                    
+                    // Keep log to last 50 chunks
+                    if (chunkLog.length > 50) {
+                        chunkLog.shift();
+                    }
+                    
+                    // Update log display
+                    updateChunkLog();
+                    
+                    // Debug: Show raw data range and buffer status
+                    const min = Math.min(...data.samples);
+                    const max = Math.max(...data.samples);
+                    const emptySpace = MAX_BUFFER_SIZE - dataBuffer.length;
+                    console.log(`📦 NEW CHUNK ${chunkCount} (ID: ${data.chunk_id}): ${data.samples.length} samples | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+                    console.log(`   Buffer: ${dataBuffer.length}/${MAX_BUFFER_SIZE} filled | ${emptySpace} empty space remaining`);
+                    
+                    // Update sample rate if provided
+                    if (data.sample_rate) {
+                        sampleRate = data.sample_rate;
+                    }
+                    
+                    updateStats();
+                    drawWaveform();
+                }
+            } catch (error) {
+                console.error('Error fetching chunk:', error);
+            }
+        }
+        
+        // Update statistics display
+        function updateStats() {
+            document.getElementById('chunk-count').textContent = chunkCount;
+            document.getElementById('total-received').textContent = totalSamplesReceived.toLocaleString();
+            document.getElementById('samples-remaining').textContent = dataBuffer.length.toLocaleString();
+            // Note: playback rate is updated by slider, not here
+            
+            // Calculate time since last chunk
+            if (lastChunkTime !== null) {
+                const timeSince = (Date.now() - lastChunkTime) / 1000;  // Convert to seconds
+                document.getElementById('time-since-chunk').textContent = timeSince.toFixed(1) + 's';
+            } else {
+                document.getElementById('time-since-chunk').textContent = '--';
+            }
+        }
+        
+        // Draw waveform on canvas
+        function drawWaveform() {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw center line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.stroke();
+            
+            // Extract the visualization window (FIRST VISUAL_WINDOW samples - what we're playing through)
+            const bufferLength = dataBuffer.length;
+            const visualEndIdx = Math.min(VISUAL_WINDOW, bufferLength);
+            const visualData = dataBuffer.slice(0, visualEndIdx);  // Always show front of buffer
+            const visualLength = visualData.length;
+            
+            // Draw vertical grid lines every 500 samples
+            const xStep = width / VISUAL_WINDOW;
+            ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.6)';
+            ctx.font = '12px monospace';
+            
+            for (let sampleCount = 500; sampleCount <= VISUAL_WINDOW; sampleCount += 500) {
+                const x = sampleCount * xStep;
+                
+                // Draw vertical line
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+                
+                // Draw label at bottom
+                const label = sampleCount.toString();
+                const textWidth = ctx.measureText(label).width;
+                ctx.fillText(label, x - textWidth / 2, height - 5);
+            }
+            
+            // Draw chunk boundary markers (where chunks splice together)
+            // Only show boundaries within the first VISUAL_WINDOW samples
+            ctx.strokeStyle = 'rgba(255, 150, 0, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);  // Dashed line
+            
+            for (let boundary of chunkBoundaries) {
+                // Show boundaries that fall within [0, VISUAL_WINDOW]
+                if (boundary > 0 && boundary <= VISUAL_WINDOW) {
+                    const x = boundary * xStep;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+            }
+            
+            ctx.setLineDash([]);  // Reset to solid lines
+            
+            // Draw the visualization window (most recent samples)
+            if (visualLength > 1) {
+                // Adaptive scaling based on leftmost 3000 samples (what's currently playing)
+                const analysisWindow = Math.min(3000, visualLength);
+                const analysisData = visualData.slice(0, analysisWindow);
+                
+                // Find current min/max in analysis window
+                const currentMin = Math.min(...analysisData);
+                const currentMax = Math.max(...analysisData);
+                
+                // Initialize scaling immediately on first data (don't start from 0-1)
+                if (!scaleInitialized && analysisData.length > 100) {
+                    displayMin = currentMin;
+                    displayMax = currentMax;
+                    scaleInitialized = true;
+                    console.log(`📊 Initialized display scale: [${displayMin.toFixed(0)}, ${displayMax.toFixed(0)}]`);
+                }
+                
+                // Smooth adaptation using exponential moving average (5-second time constant)
+                // alpha = 0.01 at 20fps → tau ≈ 1/(0.01*20) = 5 seconds
+                displayMin = SCALE_ALPHA * currentMin + (1 - SCALE_ALPHA) * displayMin;
+                displayMax = SCALE_ALPHA * currentMax + (1 - SCALE_ALPHA) * displayMax;
+                
+                // Calculate scaling to map [displayMin, displayMax] to canvas height
+                const dataRange = displayMax - displayMin;
+                const scale = dataRange > 0 ? (height * 0.8) / dataRange : 1;  // Use 80% of height
+                const dataMid = (displayMin + displayMax) / 2;
+                
+                // Draw waveform (data) with adaptive scaling
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let i = 0; i < visualLength; i++) {
+                    const x = i * xStep;
+                    // Center around dataMid and scale
+                    const y = centerY - ((visualData[i] - dataMid) * scale);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.stroke();
+                
+                // Draw empty portion if buffer hasn't filled the window yet
+                if (visualLength < VISUAL_WINDOW) {
+                    const emptyX = visualLength * xStep;
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(emptyX, 0, width - emptyX, height);
+                    
+                    // Draw vertical line at fill boundary
+                    ctx.strokeStyle = 'rgba(255, 200, 0, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(emptyX, 0);
+                    ctx.lineTo(emptyX, height);
+                    ctx.stroke();
+                }
+                
+                // Draw scale info
+                ctx.fillStyle = '#a0c4ff';
+                ctx.font = '14px monospace';
+                ctx.fillText(`Range: [${displayMin.toFixed(0)}, ${displayMax.toFixed(0)}] (RAW COUNTS)`, 10, 20);
+                ctx.fillText(`Viewing: ${visualLength}/${VISUAL_WINDOW} samples`, 10, 40);
+                ctx.fillText(`Buffer: ${bufferLength}/${MAX_BUFFER_SIZE} samples`, 10, 60);
+                const bufferPercent = (bufferLength / MAX_BUFFER_SIZE * 100).toFixed(1);
+                ctx.fillText(`Fill: ${bufferPercent}%`, 10, 80);
+            }
+            
+            // Update scan line position (always at left edge now)
+            updateScanLine();
+        }
+        
+        // Update scan line position and current output meter
+        function updateScanLine() {
+            // Red line stays at the left edge (read position = index 0)
+            scanLine.style.left = '60px';  // Offset by meter width
+            
+            // Update current output meter
+            if (dataBuffer.length > 0) {
+                const currentValue = dataBuffer[0];  // Value at red line
+                
+                // Normalize to meter range (based on adaptive scaling)
+                const range = displayMax - displayMin;
+                const normalizedValue = range > 0 ? (currentValue - displayMin) / range : 0.5;
+                const clampedValue = Math.max(0, Math.min(1, normalizedValue));
+                
+                // Update meter indicator height
+                meterIndicator.style.height = (clampedValue * 100) + '%';
+                
+                // Display normalized value (0-1)
+                meterValue.textContent = clampedValue.toFixed(3);
+            } else {
+                meterIndicator.style.height = '0%';
+                meterValue.textContent = '--';
+            }
+        }
+        
+        // Advance playback by consuming data at 100 Hz
+        let scanDebugCounter = 0;
+        function advanceScan() {
+            // Debug logging every 100 calls (once per second at 100 Hz)
+            scanDebugCounter++;
+            if (scanDebugCounter % 100 === 0) {
+                console.log(`[SCAN] Called ${scanDebugCounter} times | isPaused: ${isPaused} | Buffer: ${dataBuffer.length} | Played: ${totalSamplesPlayed}`);
+            }
+            
+            if (!isPaused && dataBuffer.length > 0) {
+                // "Play" the sample at index 0 by removing it
+                dataBuffer.shift();  // Remove first element
+                totalSamplesPlayed++;   // Track total samples played
+                
+                // Shift all chunk boundaries left by 1 (data is moving left)
+                chunkBoundaries = chunkBoundaries.map(b => b - 1).filter(b => b > 0);
+                
+                updateStats();
+                updateScanLine();
+            }
+        }
+        
+        // Toggle pause
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pause-btn');
+            if (isPaused) {
+                btn.textContent = '▶️ Resume Scan';
+                btn.classList.add('active');
+                console.log(`⏸️ PAUSED - scrolling stopped`);
+            } else {
+                btn.textContent = '⏸️ Pause Scan';
+                btn.classList.remove('active');
+                console.log(`▶️ RESUMED - scrolling active`);
+            }
+        }
+        
+        // Update chunk log display
+        function updateChunkLog() {
+            const logContainer = document.getElementById('log-container');
+            logContainer.innerHTML = '';
+            
+            // Display chunks in reverse order (newest first)
+            for (let i = chunkLog.length - 1; i >= 0; i--) {
+                const chunk = chunkLog[i];
+                const row = document.createElement('div');
+                row.className = 'log-row';
+                
+                const first10 = chunk.samples.slice(0, 10);
+                const last10 = chunk.samples.slice(-10);
+                
+                row.innerHTML = `
+                    <div class="log-header">
+                        Chunk #${chunk.count} (ID: ${chunk.id}) - ${chunk.samples.length} samples @ ${chunk.timestamp}
+                    </div>
+                    <div class="log-values">
+                        <div class="log-section">
+                            <div class="log-label">First 10 values:</div>
+                            <div class="log-numbers">[${first10.map(v => v.toFixed(2)).join(', ')}]</div>
+                        </div>
+                        <div class="log-section">
+                            <div class="log-label">Last 10 values:</div>
+                            <div class="log-numbers">[${last10.map(v => v.toFixed(2)).join(', ')}]</div>
+                        </div>
+                    </div>
+                `;
+                
+                logContainer.appendChild(row);
+            }
+            
+            // Auto-scroll to top (newest chunk)
+            logContainer.scrollTop = 0;
+        }
+        
+        // Reset buffer
+        function resetBuffer() {
+            dataBuffer = [];
+            totalSamplesReceived = 0;
+            totalSamplesPlayed = 0;
+            chunkCount = 0;
+            lastChunkId = -1;
+            chunkLog = [];
+            chunkBoundaries = [];
+            lastChunkTime = null;
+            displayMin = 0;
+            displayMax = 1;
+            scaleInitialized = false;
+            updateChunkLog();
+            updateStats();
+            drawWaveform();
+        }
+        
+        // Update playback rate
+        function updatePlaybackRate(newRate) {
+            playbackRate = parseInt(newRate);
+            document.getElementById('playback-rate-display').textContent = playbackRate + ' Hz';
+            
+            // Restart scan interval with new rate
+            if (scanInterval) {
+                clearInterval(scanInterval);
+            }
+            scanInterval = setInterval(advanceScan, 1000 / playbackRate);
+            
+            console.log(`🎚️ Playback rate changed to ${playbackRate} Hz (interval: ${1000/playbackRate}ms)`);
+        }
+        
+        // Main update loops
+        console.log(`🚀 Starting intervals - fetchChunk: 100ms, advanceScan: ${1000/playbackRate}ms, drawWaveform: 50ms`);
+        console.log(`🔄 Initial state - isPaused: ${isPaused}, buffer: ${dataBuffer.length}`);
+        
+        setInterval(fetchChunk, 100);  // Fetch chunks every 100ms
+        scanInterval = setInterval(advanceScan, 1000 / playbackRate);  // Scan at playback rate
+        setInterval(drawWaveform, 50);  // Redraw at 20 fps
+        
+        // Initial draw
+        updateStats();
+        drawWaveform();
+        
+        console.log(`✅ Intervals started - scanning should begin automatically when data arrives`);
+    </script>
+</body>
+</html>
+

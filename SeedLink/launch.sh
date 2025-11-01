@@ -16,7 +16,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Start SeedLink Audifier
 echo "🔊 Starting SeedLink Audifier on localhost:8888..."
-cd "$SCRIPT_DIR" && conda run -n plotbot_anaconda python live_audifier.py > /tmp/seedlink_audifier.log 2>&1 &
+# Filter out conda libmamba warnings (harmless but annoying) while preserving other output
+cd "$SCRIPT_DIR" && conda run -n plotbot_anaconda python live_audifier.py 2>&1 | grep --line-buffered -v "Error while loading conda entry point" > /tmp/seedlink_audifier.log &
 AUDIFIER_PID=$!
 
 # Wait for audifier to load (ObsPy takes time)

@@ -22,11 +22,24 @@ pip install -r requirements.txt
 
 ### Run
 
+**Option 1: One-time launch**
 ```bash
 ./launch.sh
 ```
 
-The script will:
+**Option 2: Auto-restart on file changes** (recommended for development)
+```bash
+python watch_and_restart.py
+```
+
+The `watch_and_restart.py` script:
+- Starts the service automatically
+- Watches `live_audifier.py` for changes
+- Automatically restarts when you edit the file
+- Monitors process health and restarts if it crashes
+- Perfect for iterative development
+
+Both scripts will:
 - Clean up any existing processes
 - Start the backend server
 - Wait for dependencies to load

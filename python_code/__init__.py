@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.01"
+__version__ = "1.02"
 __commit_message__ = (
-    "v1.01 Feature: Added real-time smoothing filter to SeedLink dashboard - 4-box layout with raw/smoothed live amplitude and waveform displays, adjustable smoothing (20-500ms)"
+    "v1.02 Feature: Created SeedLink chunk forwarder with live waveform viewer - fixed-size scrolling buffer visualization, adaptive normalization, playback rate control (1-200Hz), live output meter"
 )
 
 # Import key modules to make them available when importing the package

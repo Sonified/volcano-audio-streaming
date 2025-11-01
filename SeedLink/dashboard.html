@@ -254,8 +254,19 @@
                     <span class="stat-label">Effective Sample Rate:</span>
                     <span class="stat-value" id="effective-rate">-- Hz</span>
                 </div>
-                <div class="info" style="margin-top: 10px;">
-                    Should be ~100 Hz for HHZ channels
+                <div style="margin-top: 15px;">
+                    <button id="skip-samples-btn" onclick="skipSamples()" style="
+                        padding: 8px 16px;
+                        background: rgba(255, 165, 0, 0.3);
+                        color: #ffaa66;
+                        border: 1px solid rgba(255, 165, 0, 0.5);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 0.9em;
+                        transition: all 0.3s;
+                    " onmouseover="this.style.background='rgba(255, 165, 0, 0.5)'" onmouseout="this.style.background='rgba(255, 165, 0, 0.3)'">
+                        Skip 1000 Samples
+                    </button>
                 </div>
             </div>
             
@@ -323,70 +334,78 @@
             
         </div>
         
-        <!-- 4-Box Layout: Live Amplitude + Waveforms -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px;">
-            <!-- Box 1: Original Live Amplitude -->
-            <div class="card">
-                <h2 style="font-size: 1.1em; text-align: center; color: #00d4ff;">Original Live</h2>
-                <div style="text-align: center; font-size: 1.8em; color: #00d4ff; margin: 15px 0;">
-                    <span id="live-amplitude-raw">0.000</span>
-                </div>
-                <div style="position: relative; height: 180px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; overflow: hidden;">
-                    <!-- Center line -->
-                    <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
-                    <!-- Moving amplitude line -->
-                    <div id="amplitude-line-raw" style="position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00d4ff, #00d4ff); transition: top 0.05s ease-out; box-shadow: 0 0 10px #00d4ff;"></div>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8em; color: #a0c4ff;">
-                    <span>-1.0</span>
-                    <span>0.0</span>
-                    <span>+1.0</span>
-                </div>
-            </div>
-            
-            <!-- Box 2: Smoothed Live Amplitude -->
-            <div class="card">
-                <h2 style="font-size: 1.1em; text-align: center; color: #00ff88;">Smoothed Live</h2>
-                <div style="text-align: center; font-size: 1.8em; color: #00ff88; margin: 15px 0;">
-                    <span id="live-amplitude-smoothed">0.000</span>
-                </div>
-                <div style="position: relative; height: 180px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; overflow: hidden;">
-                    <!-- Center line -->
-                    <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
-                    <!-- Moving amplitude line -->
-                    <div id="amplitude-line-smoothed" style="position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00ff88, #00ff88); transition: top 0.05s ease-out; box-shadow: 0 0 10px #00ff88;"></div>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.8em; color: #a0c4ff;">
-                    <span>-1.0</span>
-                    <span>0.0</span>
-                    <span>+1.0</span>
-                </div>
-            </div>
-            
-            <!-- Box 3: Original Waveform -->
+        <!-- Lower Section: Original Waveform (spanning 3 boxes) + Smoothed Live (1 box) -->
+        <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 15px; margin-top: 20px;">
+            <!-- Left: Waveform (spans 3/4 width) -->
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h2 style="font-size: 1.1em; margin: 0; color: #00d4ff;">Original Waveform</h2>
+                    <h2 style="font-size: 1.1em; margin: 0; color: #00ff88;">Waveform</h2>
                 </div>
-                <div style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">
-                    <canvas id="waveform-raw" style="width: 100%; height: 240px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; display: block;"></canvas>
+                <div style="border-radius: 5px; padding: 0;">
+                    <canvas id="waveform-raw" style="width: 100%; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; display: block;"></canvas>
+                </div>
+                <!-- Test injection buttons -->
+                <div style="display: flex; gap: 10px; margin-top: 10px; justify-content: center;">
+                    <button id="inject-minus1-btn" onclick="injectTestSamples(-1)" style="
+                        padding: 8px 16px;
+                        background: rgba(255, 68, 68, 0.3);
+                        color: #ff8888;
+                        border: 1px solid rgba(255, 68, 68, 0.5);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 0.9em;
+                        transition: all 0.3s;
+                    " onmouseover="this.style.background='rgba(255, 68, 68, 0.5)'" onmouseout="this.style.background='rgba(255, 68, 68, 0.3)'">
+                        Send -1
+                    </button>
+                    <button id="inject-0-btn" onclick="injectTestSamples(0)" style="
+                        padding: 8px 16px;
+                        background: rgba(128, 128, 128, 0.3);
+                        color: #cccccc;
+                        border: 1px solid rgba(128, 128, 128, 0.5);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 0.9em;
+                        transition: all 0.3s;
+                    " onmouseover="this.style.background='rgba(128, 128, 128, 0.5)'" onmouseout="this.style.background='rgba(128, 128, 128, 0.3)'">
+                        Send 0
+                    </button>
+                    <button id="inject-1-btn" onclick="injectTestSamples(1)" style="
+                        padding: 8px 16px;
+                        background: rgba(0, 255, 136, 0.3);
+                        color: #88ffaa;
+                        border: 1px solid rgba(0, 255, 136, 0.5);
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 0.9em;
+                        transition: all 0.3s;
+                    " onmouseover="this.style.background='rgba(0, 255, 136, 0.5)'" onmouseout="this.style.background='rgba(0, 255, 136, 0.3)'">
+                        Send 1
+                    </button>
                 </div>
             </div>
             
-            <!-- Box 4: Smoothed Waveform -->
+            <!-- Right: Live Amplitude -->
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h2 style="font-size: 1.1em; margin: 0; color: #00ff88;">Smoothed Waveform</h2>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <label for="smoothing-slider" style="font-size: 0.75em; color: #a0c4ff;">Smooth:</label>
-                        <input type="range" id="smoothing-slider" min="20" max="500" value="50" step="1" 
-                               style="width: 100px; cursor: pointer;"
-                               oninput="updateSmoothingTime(this.value)">
-                        <span id="smoothing-value" style="font-size: 0.75em; color: #ffffff; min-width: 40px;">50ms</span>
+                <h2 style="font-size: 1.1em; margin: 0 0 10px 0; color: #00ff88;">Live</h2>
+                <div style="display: flex; gap: 8px;">
+                    <!-- Amplitude display box -->
+                    <div style="position: relative; flex: 1; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; overflow: hidden;">
+                        <!-- Center line -->
+                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
+                        <!-- Moving amplitude line -->
+                        <div id="amplitude-line-smoothed" style="position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00ff88, #00ff88); transition: top 0.05s ease-out; box-shadow: 0 0 10px #00ff88;"></div>
+                        <!-- Live amplitude value in lower right corner (floating overlay) -->
+                        <div style="position: absolute; bottom: 8px; right: 8px; font-size: 1.6em; color: #00ff88; background: rgba(0, 0, 0, 0.6); padding: 4px 8px; border-radius: 4px; pointer-events: none; font-weight: bold;">
+                            <span id="live-amplitude-smoothed">0.000</span>
+                        </div>
                     </div>
-                </div>
-                <div style="border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 5px; padding: 5px;">
-                    <canvas id="waveform-smoothed" style="width: 100%; height: 240px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; display: block;"></canvas>
+                    <!-- Y-axis labels on right -->
+                    <div style="display: flex; flex-direction: column; justify-content: space-between; font-size: 0.75em; color: #a0c4ff; padding-top: 2px; padding-bottom: 2px;">
+                        <span>+1.0</span>
+                        <span>0.0</span>
+                        <span>-1.0</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -395,8 +414,6 @@
     <script>
         const canvasRaw = document.getElementById('waveform-raw');
         const ctxRaw = canvasRaw.getContext('2d');
-        const canvasSmoothed = document.getElementById('waveform-smoothed');
-        const ctxSmoothed = canvasSmoothed.getContext('2d');
         
         // Track last update time (client-side)
         let lastPacketCount = 0;
@@ -409,8 +426,6 @@
         function resizeCanvas() {
             canvasRaw.width = canvasRaw.offsetWidth;
             canvasRaw.height = canvasRaw.offsetHeight;
-            canvasSmoothed.width = canvasSmoothed.offsetWidth;
-            canvasSmoothed.height = canvasSmoothed.offsetHeight;
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -439,14 +454,21 @@
                 
                 // Check if new packet arrived (record the interval and reset timer)
                 const currentPackets = data.packets_received || 0;
+                
+                // Only reset lastUpdateTime when backend actually updates (new packet count)
                 if (currentPackets > lastPacketCount) {
-                    // Only record interval if we have a previous time (skip first packet)
+                    // New packet detected - reset timer
                     if (lastUpdateTime !== null) {
                         const intervalSeconds = (Date.now() - lastUpdateTime) / 1000;
-                        updateIntervals.push(intervalSeconds);
+                        if (intervalSeconds > 0 && intervalSeconds < 300) { // Sanity check
+                            updateIntervals.push(intervalSeconds);
+                        }
                     }
                     lastPacketCount = currentPackets;
+                    // Always use client-side current time for accurate "seconds ago" display
                     lastUpdateTime = Date.now();
+                    // Immediately update display to show "0s ago" when new packet arrives
+                    document.getElementById('last-update').textContent = '0s ago';
                 }
                 
                 document.getElementById('packets').textContent = currentPackets;
@@ -473,7 +495,7 @@
                 document.getElementById('audio-active').textContent = data.audio_active ? 'Active' : 'Inactive';
                 document.getElementById('audio-active').style.color = data.audio_active ? '#00ff88' : '#ff4444';
                 
-                // Update last update time (client-side calculation)
+                // Update last update time display (only updates when lastUpdateTime was reset by new packet)
                 if (lastUpdateTime !== null) {
                     const secondsSinceUpdate = Math.floor((Date.now() - lastUpdateTime) / 1000);
                     document.getElementById('last-update').textContent = `${secondsSinceUpdate}s ago`;
@@ -524,46 +546,18 @@
         // Update waveform
         async function updateWaveform() {
             try {
-                // Fetch both raw interpolated and smoothed waveforms
-                const [rawResponse, smoothedResponse] = await Promise.all([
-                    fetch('http://localhost:8888/api/waveform_raw_interpolated'),
-                    fetch('http://localhost:8888/api/waveform_smoothed')
-                ]);
-                
-                const rawData = await rawResponse.json();
+                // Fetch smoothed waveform (showing smoothed now)
+                const smoothedResponse = await fetch('http://localhost:8888/api/waveform_smoothed');
                 const smoothedData = await smoothedResponse.json();
                 
-                if (rawData.data && rawData.data.length > 0) {
-                    drawWaveform(ctxRaw, canvasRaw, rawData.data, '#00d4ff', 'Raw');
-                }
-                
                 if (smoothedData.data && smoothedData.data.length > 0) {
-                    drawWaveform(ctxSmoothed, canvasSmoothed, smoothedData.data, '#00ff88', 'Smoothed');
+                    drawWaveform(ctxRaw, canvasRaw, smoothedData.data, '#00ff88', 'Smoothed');
                 }
             } catch (error) {
                 console.error('Error fetching waveform:', error);
             }
         }
         
-        // Update smoothing time
-        async function updateSmoothingTime(msValue) {
-            const timeSeconds = msValue / 1000.0;
-            document.getElementById('smoothing-value').textContent = msValue + 'ms';
-            
-            try {
-                const response = await fetch('http://localhost:8888/api/smoothing_time', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ time: timeSeconds })
-                });
-                const result = await response.json();
-                if (!result.success) {
-                    console.error('Failed to update smoothing time:', result.error);
-                }
-            } catch (error) {
-                console.error('Error updating smoothing time:', error);
-            }
-        }
         
         // Update live amplitude (real-time from audio callback)
         async function updateLiveAmplitude() {
@@ -592,19 +586,15 @@
                 lastSmoothedAmplitude = smoothed;
             }
             
-            // Update raw amplitude display
-            document.getElementById('live-amplitude-raw').textContent = rawValue.toFixed(3);
-            updateAmplitudeLine(document.getElementById('amplitude-line-raw'), rawValue, '#00d4ff');
-            
-            // Update smoothed amplitude display
+            // Update smoothed amplitude display (only one now)
             document.getElementById('live-amplitude-smoothed').textContent = smoothed.toFixed(3);
             updateAmplitudeLine(document.getElementById('amplitude-line-smoothed'), smoothed, '#00ff88');
         }
         
         function updateAmplitudeLine(lineElement, value, baseColor) {
             // Update position of amplitude line
-            // Map value from [-1, 1] to [0, 180] pixels (inverted for screen coords)
-            const position = ((1 - value) / 2) * 180; // -1 -> 180px, 0 -> 90px, +1 -> 0px
+            // Map value from [-1, 1] to [0, 300] pixels (inverted for screen coords, using 300px height to match waveform)
+            const position = ((1 - value) / 2) * 300; // -1 -> 300px, 0 -> 150px, +1 -> 0px
             lineElement.style.top = position + 'px';
             
             // Color based on magnitude
@@ -654,9 +644,13 @@
         
         // Reset all stats
         async function resetStats() {
-            if (!confirm('Reset all statistics? This will clear packet counts, buffer stats, and timing data.')) {
-                return;
-            }
+            const btn = document.getElementById('reset-btn');
+            
+            // Immediate visual feedback
+            btn.disabled = true;
+            btn.textContent = '⏳ Resetting...';
+            btn.style.background = 'rgba(255, 165, 0, 0.5)';
+            btn.style.color = '#ffffff';
             
             try {
                 const response = await fetch('http://localhost:8888/api/reset', {
@@ -665,39 +659,149 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    // Also reset client-side tracking
+                    // Reset client-side tracking
                     updateIntervals = [];
                     lastPacketCount = 0;
-                    lastUpdateTime = null;  // Reset to null so first interval after reset is skipped
+                    lastUpdateTime = null;
                     
-                    // Show success feedback
-                    const btn = document.getElementById('reset-btn');
-                    const originalText = btn.textContent;
-                    btn.textContent = '✓ Done';
+                    // Success feedback
+                    btn.textContent = '✓ Reset Complete';
                     btn.style.background = 'rgba(0, 255, 136, 0.5)';
                     btn.style.color = '#ffffff';
                     btn.style.borderColor = 'rgba(0, 255, 136, 0.7)';
+                    
+                    // Restore after 2s
                     setTimeout(() => {
-                        btn.textContent = originalText;
+                        btn.textContent = '🔄 Reset';
                         btn.style.background = 'rgba(255, 68, 68, 0.3)';
                         btn.style.color = '#ff8888';
                         btn.style.borderColor = 'rgba(255, 68, 68, 0.5)';
+                        btn.disabled = false;
                     }, 2000);
+                    
+                    updateStatus();
+                } else {
+                    // Handle failure
+                    btn.textContent = '✗ Failed';
+                    btn.style.background = 'rgba(255, 68, 68, 0.5)';
+                    setTimeout(() => {
+                        btn.textContent = '🔄 Reset';
+                        btn.style.background = 'rgba(255, 68, 68, 0.3)';
+                        btn.style.color = '#ff8888';
+                        btn.disabled = false;
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('Error resetting:', error);
+                btn.textContent = '✗ Failed';
+                btn.style.background = 'rgba(255, 68, 68, 0.5)';
+                setTimeout(() => {
+                    btn.textContent = '🔄 Reset';
+                    btn.style.background = 'rgba(255, 68, 68, 0.3)';
+                    btn.style.color = '#ff8888';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+        
+        // Inject test samples (for testing signal jumps)
+        async function injectTestSamples(value) {
+            const btnId = value === -1 ? 'inject-minus1-btn' : value === 0 ? 'inject-0-btn' : 'inject-1-btn';
+            const btn = document.getElementById(btnId);
+            
+            // Capture original text and style BEFORE any changes
+            const originalText = value === -1 ? 'Send -1' : value === 0 ? 'Send 0' : 'Send 1';
+            const originalBg = value === -1 ? 'rgba(255, 68, 68, 0.3)' : value === 0 ? 'rgba(128, 128, 128, 0.3)' : 'rgba(0, 255, 136, 0.3)';
+            
+            // Disable button during request
+            if (btn.disabled) return;
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('http://localhost:8888/api/inject_samples', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ value: value, count: 10 })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success feedback
+                    btn.textContent = '✓ Sent';
+                    btn.style.background = 'rgba(0, 255, 136, 0.5)';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = originalBg;
+                        btn.disabled = false;
+                    }, 1000);
                     
                     // Immediately refresh display
                     updateStatus();
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                    btn.style.background = originalBg;
+                    alert('Failed to inject samples: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
-                console.error('Error resetting stats:', error);
-                alert('Failed to reset stats');
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.background = originalBg;
+                console.error('Error injecting samples:', error);
+                alert('Failed to inject samples: ' + error.message);
+            }
+        }
+        
+        // Skip 1000 samples forward (for testing buffer behavior)
+        async function skipSamples() {
+            try {
+                const response = await fetch('http://localhost:8888/api/skip_samples', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ samples: 1000 })
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success feedback
+                    const btn = document.getElementById('skip-samples-btn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ Skipped';
+                    btn.style.background = 'rgba(0, 255, 136, 0.5)';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = 'rgba(255, 165, 0, 0.3)';
+                    }, 1000);
+                    
+                    // Immediately refresh display
+                    updateStatus();
+                } else {
+                    alert('Failed to skip samples: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error skipping samples:', error);
+                alert('Failed to skip samples');
             }
         }
         
         // Stop the backend server
         async function stopBackend() {
-            if (!confirm('Stop backend server? This will shut down the audio stream and close the SeedLink connection. You will need to restart manually from terminal.')) {
-                return;
-            }
+            const btn = document.getElementById('backend-stop');
+            
+            // Immediate visual feedback
+            btn.disabled = true;
+            btn.textContent = '⏳ Stopping...';
+            btn.style.background = 'rgba(255, 165, 0, 0.5)';
+            btn.style.color = '#ffffff';
             
             try {
                 const response = await fetch('http://localhost:8888/api/stop', {
@@ -711,13 +815,11 @@
                     lastPacketCount = 0;
                     lastUpdateTime = null;
                     
-                    // Show success feedback
-                    const btn = document.getElementById('backend-stop');
+                    // Success feedback
                     btn.textContent = '✓ Stopped';
                     btn.style.background = 'rgba(0, 255, 136, 0.5)';
                     btn.style.color = '#ffffff';
                     btn.style.borderColor = 'rgba(0, 255, 136, 0.7)';
-                    btn.disabled = true;
                     
                     // Update display to show disconnected
                     setTimeout(() => {
@@ -726,7 +828,10 @@
                 }
             } catch (error) {
                 console.error('Error stopping backend:', error);
-                // This might fail if server already stopped
+                // This might fail if server already stopped - show as success anyway
+                btn.textContent = '✓ Stopped';
+                btn.style.background = 'rgba(0, 255, 136, 0.5)';
+                btn.style.color = '#ffffff';
             }
         }
         
@@ -735,7 +840,8 @@
             const height = canvas.height;
             const centerY = height / 2;
             
-            // Clear canvas
+            // Completely clear canvas (no transparency to avoid ghosting)
+            ctx.clearRect(0, 0, width, height);
             ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.fillRect(0, 0, width, height);
             
@@ -748,14 +854,14 @@
             ctx.stroke();
             
             // Draw waveform
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            
             if (data.length > 0) {
                 const maxAmplitude = Math.max(...data.map(Math.abs)) || 1;
                 const scale = (height * 0.4) / maxAmplitude;
                 const xStep = width / Math.max(data.length, 1);
+                
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
                 
                 for (let i = 0; i < data.length; i++) {
                     const x = i * xStep;
