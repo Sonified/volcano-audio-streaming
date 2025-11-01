@@ -1,0 +1,2188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIS Data Audification (Beta) 🚧</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #2a0606 0%, #3a0f0f 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 8px rgba(255, 100, 100, 0.6), 0 0 20px rgba(255, 50, 50, 0.4);
+        }
+        
+        h2 {
+            color: #550000;
+            text-shadow: 1px 1px 3px rgba(255, 200, 200, 0.5), 0 0 2px rgba(255, 255, 255, 0.8);
+            font-weight: 700;
+        }
+        
+        .panel {
+            background: linear-gradient(135deg, rgba(255, 250, 250, 0.95) 0%, rgba(240, 200, 195, 0.95) 100%);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 
+                0 10px 20px rgba(80, 20, 20, 0.35),
+                0 6px 12px rgba(80, 20, 20, 0.25),
+                0 3px 6px rgba(255, 100, 100, 0.15),
+                0 1px 3px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(200, 100, 100, 0.2);
+            position: relative;
+            transform: translateZ(0);
+        }
+        
+        .panel:first-child {
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+        
+        .panel:first-child label {
+            font-size: 18px;
+        }
+        
+        .panel:first-child select,
+        .panel:first-child input {
+            font-size: 16px;
+        }
+        
+        .panel:nth-child(2) {
+            background: linear-gradient(135deg, rgba(255, 240, 240, 0.95) 0%, rgba(245, 210, 205, 0.95) 100%);
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+        
+        .panel:nth-child(2) label {
+            font-size: 15px;
+        }
+        
+        .panel:nth-child(2) select,
+        .panel:nth-child(2) input {
+            font-size: 15px;
+        }
+        
+        .panel:nth-child(2) h2 {
+            font-size: calc(1.5em + 1px);
+        }
+        
+        .panel:nth-child(3) {
+            background: linear-gradient(135deg, rgba(255, 245, 245, 0.95) 0%, rgba(240, 200, 195, 0.95) 100%);
+        }
+        
+        .panel:nth-child(4) {
+            background: linear-gradient(135deg, rgba(10, 2, 2, 0.95) 0%, rgba(50, 15, 15, 0.95) 100%);
+            border: 1px solid rgba(200, 100, 100, 0.3);
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+        
+        .panel:nth-child(5) {
+            background: linear-gradient(135deg, rgba(240, 200, 200, 0.95) 0%, rgba(190, 130, 125, 0.95) 100%);
+            padding-top: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-weight: 700;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        select, input {
+            padding: 8px 12px;
+            border: 2px solid rgba(200, 100, 100, 0.3);
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #cc5533;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(204, 85, 51, 0.1);
+        }
+        
+        /* Range slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to bottom, transparent 6px, #5a1a1a 6px, #5a1a1a 12px, transparent 12px);
+            height: 20px;
+            cursor: pointer;
+            padding: 0;
+            border: none;
+            outline: none;
+            border-radius: 4px;
+        }
+        
+        /* Webkit (Chrome, Safari, Edge) - Track */
+        input[type="range"]::-webkit-slider-track {
+            background: #5a1a1a;
+            height: 4px;
+            border-radius: 2px;
+            border: none;
+        }
+        
+        /* Webkit - Thumb */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #cc3333;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #ff3333;
+        }
+        
+        /* Firefox - Track */
+        input[type="range"]::-moz-range-track {
+            background: #5a1a1a;
+            height: 4px;
+            border-radius: 2px;
+            border: none;
+        }
+        
+        /* Firefox - Thumb */
+        input[type="range"]::-moz-range-thumb {
+            background: #cc3333;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            border: 2px solid #ffffff;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #ff3333;
+        }
+        
+        /* Enhanced styling for spectrogram scroll speed slider */
+        #spectrogramScrollSpeed::-webkit-slider-track {
+            background: #5a1a1a !important;
+            height: 4px !important;
+            border-radius: 2px !important;
+        }
+        
+        #spectrogramScrollSpeed::-webkit-slider-thumb {
+            background: #cc3333 !important;
+            height: 20px !important;
+            width: 20px !important;
+            border: 2px solid #ffffff !important;
+        }
+        
+        #spectrogramScrollSpeed::-webkit-slider-thumb:hover {
+            background: #ff3333 !important;
+        }
+        
+        #spectrogramScrollSpeed::-moz-range-track {
+            background: #5a1a1a !important;
+            height: 4px !important;
+            border-radius: 2px !important;
+        }
+        
+        #spectrogramScrollSpeed::-moz-range-thumb {
+            background: #cc3333 !important;
+            height: 18px !important;
+            width: 18px !important;
+            border: 2px solid #ffffff !important;
+        }
+        
+        #spectrogramScrollSpeed::-moz-range-thumb:hover {
+            background: #ff3333 !important;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #cc3333 0%, #991111 100%);
+            color: #ffffff;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+            text-shadow: none;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(200, 50, 50, 0.5);
+            background: linear-gradient(135deg, #dd4444 0%, #aa2222 100%);
+        }
+        
+        #startBtn:not(:disabled):not(.streaming) {
+            animation: pulseResumeDarken 1.8s ease-in-out infinite;
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.8), 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        @keyframes pulseBrightness {
+            0%, 100% {
+                filter: brightness(1);
+            }
+            50% {
+                filter: brightness(0.85);
+            }
+        }
+        
+        @keyframes pulsePlayButton {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(200, 50, 50, 0.4);
+            }
+            50% {
+                transform: scale(1.02);
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3), 0 0 0 6px rgba(200, 50, 50, 0);
+            }
+        }
+        
+        @keyframes pulseResumeDarken {
+            0%, 100% {
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3), inset 0 0 0 0 rgba(100, 0, 0, 0);
+            }
+            50% {
+                box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3), inset 0 0 100px 50px rgba(100, 0, 0, 0.4);
+            }
+        }
+        
+        button.pulse-play {
+            animation: pulsePlayButton 2s ease-in-out infinite;
+        }
+        
+        button.pulse-resume {
+            animation: pulseResumeDarken 1.8s ease-in-out infinite;
+            color: #ffffff !important;
+        }
+        
+        button:disabled {
+            background: linear-gradient(135deg, #999 0%, #777 100%);
+            cursor: not-allowed;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        button.secondary {
+            background: linear-gradient(135deg, #aa6655 0%, #884433 100%);
+        }
+        
+        button.secondary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #bb7766 0%, #995544 100%);
+        }
+        
+        button.pause-active {
+            background: linear-gradient(135deg, #ff6633 0%, #cc3311 100%);
+        }
+        
+        button.pause-active:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ff7744 0%, #dd4422 100%);
+        }
+        
+        button.play-active {
+            background: linear-gradient(135deg, #ff8844 0%, #dd5522 100%);
+        }
+        
+        button.play-active:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ff9955 0%, #ee6633 100%);
+        }
+        
+        button.loop-active {
+            background: linear-gradient(135deg, #ff6633 0%, #cc3311 100%);
+        }
+        
+        button.loop-active:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ff7744 0%, #dd4422 100%);
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-weight: 500;
+            min-height: 50px;
+            max-height: 50px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            border: 2px solid rgba(150, 80, 80, 0.5);
+            position: relative;
+        }
+        
+        .status.info { background: rgba(255, 200, 150, 0.3); color: #663300; font-weight: 600; }
+        .status.success { background: rgba(240, 180, 160, 0.5); color: #884400; font-weight: 600; }
+        .status.error { background: rgba(255, 150, 150, 0.4); color: #880000; font-weight: 600; }
+        
+        .status.loading {
+            background: linear-gradient(
+                90deg,
+                rgba(255, 180, 120, 0.4) 0%,
+                rgba(255, 240, 200, 0.8) 50%,
+                rgba(255, 180, 120, 0.4) 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s ease-in-out infinite, pulseBackground 1s ease-in-out infinite;
+            border-color: rgba(200, 100, 100, 0.8) !important;
+            color: #331100 !important;
+            font-weight: 700 !important;
+            position: relative;
+            text-shadow: none;
+            isolation: isolate; /* Creates new stacking context */
+        }
+        
+        /* Ensure text content is above pseudo-elements */
+        .status.loading > * {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .status.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.15) 30%,
+                rgba(255, 255, 255, 0.2) 50%,
+                rgba(255, 255, 255, 0.15) 70%,
+                transparent
+            );
+            animation: shimmerSweep 1.5s ease-in-out infinite;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .status.loading::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 140, 90, 0.3) 10px,
+                rgba(255, 140, 90, 0.3) 20px
+            );
+            background-size: 28px 28px;
+            animation: stripeMove 1.2s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        @keyframes shimmer {
+            0%, 100% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+        
+        @keyframes pulseBackground {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        @keyframes shimmerSweep {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+        
+        @keyframes stripeMove {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 28px 0;
+            }
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 0;
+        }
+        
+        .metric {
+            background: linear-gradient(135deg, rgba(255, 220, 220, 0.6) 0%, rgba(255, 200, 190, 0.6) 100%);
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid rgba(180, 120, 120, 0.4);
+            box-shadow: 0 2px 4px rgba(80, 20, 20, 0.15);
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #885555;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #662222;
+        }
+        
+        canvas {
+            width: 100%;
+            display: block;
+            border-radius: 6px;
+            background: #000;
+            box-shadow: inset 0 0 20px rgba(200, 50, 50, 0.3), 0 0 15px rgba(200, 50, 50, 0.2);
+        }
+        
+        #waveform {
+            height: 135px;
+            margin-bottom: 10px;
+        }
+        
+        #spectrogram {
+            height: 450px;
+            background: transparent;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin: 0;
+            accent-color: #cc3333;
+        }
+        
+        input[type="checkbox"] {
+            accent-color: #cc3333;
+        }
+        
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        #localServerCheckbox {
+            transform: translateY(15px);
+            margin-bottom: -15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IRIS Data Audification (Beta) 🚧</h1>
+        
+        <div class="panel">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="volcano">Volcano:</label>
+                    <select id="volcano" onchange="loadStations()">
+                        <option value="kilauea">Kīlauea (HI)</option>
+                        <option value="maunaloa">Mauna Loa (HI)</option>
+                        <option value="greatsitkin">Great Sitkin (AK)</option>
+                        <option value="shishaldin">Shishaldin (AK)</option>
+                        <option value="spurr">Mount Spurr (AK)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="dataType">Data Type:</label>
+                    <select id="dataType" onchange="updateStationList()">
+                        <option value="seismic">Seismic (Z-component)</option>
+                        <option value="infrasound">Infrasound</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="station">Station (by distance):</label>
+                    <select id="station" style="min-width: 300px;">
+                        <option value="">Loading stations...</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="duration">Duration:</label>
+                    <select id="duration">
+                        <option value="0.5">30 minutes</option>
+                        <option value="1" selected>1 hour</option>
+                        <option value="2">2 hours</option>
+                        <option value="4">4 hours</option>
+                        <option value="6">6 hours</option>
+                        <option value="12">12 hours</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="baseSampleRate">Base Sampling Rate:</label>
+                    <select id="baseSampleRate">
+                        <option value="44100" selected>44.1 kHz (441x)</option>
+                        <option value="48000">48 kHz (480x)</option>
+                        <option value="50000">50 kHz (500x)</option>
+                        <option value="96000">96 kHz (960x)</option>
+                        <option value="192000">192 kHz (1920x)</option>
+                        <option value="200000">200 kHz (2000x)</option>
+                        <option value="441000">441 kHz (4410x)</option>
+                        <option value="1000000">1 MHz (10000x)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="highpassFreq" id="highpassLabel">High Pass (@ 44.1k):</label>
+                    <select id="highpassFreq">
+                        <option value="none">None</option>
+                        <option value="0.01" selected>0.01 Hz</option>
+                        <option value="0.045">0.045 Hz</option>
+                    </select>
+                </div>
+                
+                <div style="display: none;">
+                    <input type="checkbox" id="enableNormalize" checked style="width: 24px; height: 24px; cursor: pointer;">
+                    <label for="enableNormalize" style="margin-bottom: 0; cursor: pointer; font-weight: 700; font-size: 18px; color: #333;">Normalization</label>
+                </div>
+            </div>
+            
+            <div class="status info" id="status" style="margin-top: 15px;">
+                Ready to stream. Select a volcano and station above.
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; width: 100%; box-sizing: border-box;">
+                <button type="button" id="startBtn" onclick="startStreaming(event)" style="min-width: 150px;">📡 Fetch Data</button>
+                <button type="button" onclick="togglePlayPause()" id="playPauseBtn" disabled style="min-width: 150px;">⏸️ Pause</button>
+                <button type="button" onclick="toggleLoop()" id="loopBtn" disabled style="min-width: 150px;">🔁 Loop</button>
+                <div style="display: flex; align-items: center; flex: 1 1 auto; min-width: 200px; max-width: min(600px, 100%); gap: 10px; padding: 0 20px; box-sizing: border-box;">
+                    <label for="playbackSpeed" id="speedLabel" style="font-weight: 600; white-space: nowrap; font-size: 18px; flex-shrink: 0; cursor: pointer; user-select: none;" title="Click to reset to 1.0x">Speed: <span id="speedValue">1.0x</span></label>
+                    <input type="range" id="playbackSpeed" min="0" max="1000" step="1" value="667" oninput="changePlaybackSpeed()" style="flex: 1; min-width: 0;">
+                </div>
+                <div style="display: flex; align-items: center; flex: 1 1 auto; min-width: 200px; max-width: min(400px, 100%); gap: 10px; padding: 0 20px; box-sizing: border-box;">
+                    <label for="volumeSlider" id="volumeLabel" style="font-weight: 600; white-space: nowrap; font-size: 18px; flex-shrink: 0; cursor: pointer; user-select: none;" title="Click to reset to 1.0">Volume: <span id="volumeValue">1.0</span></label>
+                    <input type="range" id="volumeSlider" min="0" max="200" step="1" value="100" oninput="changeVolume()" style="flex: 1; min-width: 0;">
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <canvas id="waveform" width="1200" height="135"></canvas>
+            <canvas id="spectrogram" width="1200" height="450"></canvas>
+            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; padding: 8px 0; padding-right: 40px;">
+                <label for="spectrogramScrollSpeed" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Scroll Speed:</label>
+                <div style="position: relative; width: 150px; height: 20px;">
+                    <input type="range" id="spectrogramScrollSpeed" min="0" max="100" step="1" value="67" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram scroll speed">
+                    <span id="spectrogramScrollSpeedValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-label">Time to First Audio</div>
+                    <div class="metric-value" id="ttfa">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Download Size</div>
+                    <div class="metric-value" id="downloadSize">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Sample Count</div>
+                    <div class="metric-value" id="sampleCount">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Current Position</div>
+                    <div class="metric-value" id="currentPosition">0m 0s</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Playback Duration</div>
+                    <div class="metric-value" id="playbackDuration">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="localServerCheckbox" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; background: rgba(0, 0, 0, 0.01); padding: 8px 12px; border-radius: 6px;">
+            <input type="checkbox" id="useLocalServer" style="width: 24px; height: 24px; cursor: pointer; opacity: 0.6;">
+            <label for="useLocalServer" style="margin-bottom: 0; cursor: pointer; font-weight: 500; font-size: 14px; color: rgba(255, 255, 255, 0.5);">Local Server</label>
+        </div>
+    </div>
+    
+    <script>
+        // Embedded station data (active stations within 20km of top 5 volcanoes)
+        const EMBEDDED_STATIONS = {"greatsitkin":{"name":"Great Sitkin","lat":52.0765,"lon":-176.1109,"seismic":[{"network":"AV","station":"GSTD","location":"","channel":"BHZ","distance_km":3.3,"sample_rate":50.0,"priority":0},{"network":"AV","station":"GSTR","location":"","channel":"BHZ","distance_km":4.1,"sample_rate":50.0,"priority":0},{"network":"AV","station":"GSSP","location":"","channel":"BHZ","distance_km":4.9,"sample_rate":50.0,"priority":0},{"network":"AV","station":"GSMY","location":"","channel":"BHZ","distance_km":5.2,"sample_rate":50.0,"priority":0},{"network":"AV","station":"GSCK","location":"","channel":"BHZ","distance_km":7.7,"sample_rate":50.0,"priority":0},{"network":"AV","station":"GSIG","location":"","channel":"BHZ","distance_km":16.2,"sample_rate":50.0,"priority":0}],"infrasound":[{"network":"AV","station":"GSMY","location":"","channel":"BDF","distance_km":5.2,"sample_rate":50.0}]},"shishaldin":{"name":"Shishaldin","lat":54.7554,"lon":-163.9711,"seismic":[{"network":"AV","station":"SSLS","location":"","channel":"BHZ","distance_km":5.4,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SSLN","location":"","channel":"BHZ","distance_km":6.5,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SSBA","location":"","channel":"BHZ","distance_km":10.1,"sample_rate":50.0,"priority":0},{"network":"AV","station":"ISNN","location":"","channel":"BHZ","distance_km":14.9,"sample_rate":50.0,"priority":0},{"network":"AV","station":"ISLZ","location":"","channel":"BHZ","distance_km":16.9,"sample_rate":50.0,"priority":0},{"network":"AV","station":"BRPK","location":"","channel":"BHZ","distance_km":19.2,"sample_rate":50.0,"priority":0}],"infrasound":[{"network":"AV","station":"SSLS","location":"","channel":"BDF","distance_km":5.4,"sample_rate":50.0},{"network":"AV","station":"SSLN","location":"","channel":"BDF","distance_km":6.5,"sample_rate":50.0},{"network":"AV","station":"SSBA","location":"","channel":"BDF","distance_km":10.1,"sample_rate":50.0}]},"spurr":{"name":"Spurr","lat":61.2989,"lon":-152.2539,"seismic":[{"network":"AV","station":"SPCP","location":"","channel":"BHZ","distance_km":6.4,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SPBG","location":"","channel":"BHZ","distance_km":7.7,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SPCN","location":"","channel":"BHZ","distance_km":9.2,"sample_rate":50.0,"priority":0},{"network":"AV","station":"N20K","location":"","channel":"BHZ","distance_km":11.2,"sample_rate":40.0,"priority":0},{"network":"AV","station":"SPCG","location":"","channel":"BHZ","distance_km":12.4,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SPCL","location":"","channel":"BHZ","distance_km":12.4,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SPWE","location":"","channel":"BHZ","distance_km":16.5,"sample_rate":50.0,"priority":0},{"network":"AV","station":"SPU","location":"","channel":"BHZ","distance_km":16.8,"sample_rate":50.0,"priority":0}],"infrasound":[{"network":"AV","station":"SPCP","location":"","channel":"BDF","distance_km":6.4,"sample_rate":50.0},{"network":"AV","station":"N20K","location":"20","channel":"BDF","distance_km":11.2,"sample_rate":20.0},{"network":"AV","station":"N20K","location":"EP","channel":"BDF","distance_km":11.2,"sample_rate":40.0},{"network":"AV","station":"N20K","location":"EP","channel":"BDO","distance_km":11.2,"sample_rate":40.0},{"network":"AV","station":"SPWE","location":"","channel":"BDF","distance_km":16.5,"sample_rate":50.0},{"network":"AV","station":"SPU","location":"","channel":"BDF","distance_km":16.8,"sample_rate":50.0}]},"kilauea":{"name":"Kilauea","lat":19.421,"lon":-155.287,"seismic":[{"network":"HV","station":"UWE","location":"","channel":"HHZ","distance_km":0.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"UWE","location":"QC","channel":"EHZ","distance_km":0.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"UWE","location":"QC","channel":"HHZ","distance_km":0.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"OBL","location":"","channel":"HHZ","distance_km":0.5,"sample_rate":100.0,"priority":0},{"network":"HV","station":"UWB","location":"","channel":"HHZ","distance_km":1.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"SBL","location":"","channel":"HHZ","distance_km":2.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"WRM","location":"","channel":"HHZ","distance_km":2.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"HAT","location":"","channel":"HHZ","distance_km":2.7,"sample_rate":100.0,"priority":0},{"network":"HV","station":"BYL","location":"","channel":"HHZ","distance_km":3.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"RIMD","location":"","channel":"HHZ","distance_km":3.2,"sample_rate":100.0,"priority":0},{"network":"HV","station":"KKO","location":"","channel":"HHZ","distance_km":3.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"SDH","location":"","channel":"HHZ","distance_km":3.5,"sample_rate":100.0,"priority":0},{"network":"HV","station":"OTLD","location":"","channel":"HHZ","distance_km":3.9,"sample_rate":100.0,"priority":0},{"network":"HV","station":"RSDD","location":"01","channel":"HHZ","distance_km":4.5,"sample_rate":100.0,"priority":0},{"network":"HV","station":"CPKD","location":"","channel":"HHZ","distance_km":5.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"NAHU","location":"","channel":"HHZ","distance_km":5.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"PUHI","location":"","channel":"HHZ","distance_km":5.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"PUHI","location":"00","channel":"HHZ","distance_km":5.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"AHUD","location":"","channel":"EHZ","distance_km":6.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"AHUD","location":"00","channel":"HHZ","distance_km":6.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"KOSM","location":"","channel":"HHZ","distance_km":7.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"DEVL","location":"","channel":"HHZ","distance_km":7.2,"sample_rate":100.0,"priority":0},{"network":"HV","station":"PAUD","location":"","channel":"HHZ","distance_km":9.2,"sample_rate":100.0,"priority":0},{"network":"HV","station":"MITD","location":"","channel":"HHZ","distance_km":9.6,"sample_rate":100.0,"priority":0},{"network":"HV","station":"MLOD","location":"","channel":"HHZ","distance_km":13.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"KNHD","location":"","channel":"EHZ","distance_km":13.2,"sample_rate":100.0,"priority":0},{"network":"HV","station":"HLPD","location":"","channel":"HHZ","distance_km":14.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"DESD","location":"","channel":"EHZ","distance_km":14.2,"sample_rate":100.0,"priority":0},{"network":"HV","station":"POLD","location":"","channel":"EHZ","distance_km":16.9,"sample_rate":100.0,"priority":0},{"network":"HV","station":"STCD","location":"","channel":"HHZ","distance_km":17.4,"sample_rate":100.0,"priority":0},{"network":"HV","station":"AIND","location":"","channel":"HHZ","distance_km":18.7,"sample_rate":100.0,"priority":0},{"network":"HV","station":"NPOC","location":"","channel":"HHZ","distance_km":18.9,"sample_rate":100.0,"priority":0},{"network":"HV","station":"JCUZ","location":"","channel":"HHZ","distance_km":19.9,"sample_rate":100.0,"priority":0}],"infrasound":[{"network":"UH","station":"MENE2","location":"01","channel":"BDF","distance_km":7.0,"sample_rate":40.0},{"network":"UH","station":"MENE4","location":"01","channel":"BDF","distance_km":7.0,"sample_rate":40.0},{"network":"UH","station":"MENE1","location":"01","channel":"BDF","distance_km":7.1,"sample_rate":40.0},{"network":"UH","station":"MENE3","location":"01","channel":"BDF","distance_km":7.1,"sample_rate":40.0},{"network":"UH","station":"MENE5","location":"01","channel":"BDF","distance_km":7.1,"sample_rate":40.0}]},"maunaloa":{"name":"Mauna Loa","lat":19.475,"lon":-155.608,"seismic":[{"network":"HV","station":"MOKD","location":"","channel":"HHZ","distance_km":1.6,"sample_rate":100.0,"priority":0},{"network":"HV","station":"SWRD","location":"","channel":"EHZ","distance_km":2.6,"sample_rate":100.0,"priority":0},{"network":"HV","station":"WILD","location":"","channel":"EHZ","distance_km":3.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"ALEP","location":"","channel":"EHZ","distance_km":8.3,"sample_rate":100.0,"priority":0},{"network":"HV","station":"RCOD","location":"","channel":"EHZ","distance_km":8.3,"sample_rate":100.0,"priority":0},{"network":"HV","station":"ELEP","location":"","channel":"EHZ","distance_km":9.1,"sample_rate":100.0,"priority":0},{"network":"HV","station":"TRAD","location":"","channel":"EHZ","distance_km":9.5,"sample_rate":100.0,"priority":0},{"network":"HV","station":"TOUO","location":"","channel":"HHZ","distance_km":10.5,"sample_rate":100.0,"priority":0},{"network":"HV","station":"DAND","location":"","channel":"EHZ","distance_km":14.7,"sample_rate":100.0,"priority":0},{"network":"HV","station":"PLAD","location":"","channel":"EHZ","distance_km":17.0,"sample_rate":100.0,"priority":0},{"network":"HV","station":"HSSD","location":"","channel":"HHZ","distance_km":19.3,"sample_rate":100.0,"priority":0},{"network":"HV","station":"AIND","location":"","channel":"HHZ","distance_km":19.5,"sample_rate":100.0,"priority":0}],"infrasound":[]}};
+        
+        // Global state
+        let audioContext = null;
+        let workletNode = null;
+        let analyserNode = null;
+        let gainNode = null;
+        let isPlaying = false;
+        let isPaused = false;
+        let isLooping = false;
+        let currentPlaybackRate = 1.0;
+        let streamStartTime = 0;
+        let availableStations = { seismic: [], infrasound: [] };
+        let allReceivedData = [];
+        let isFetchingNewData = false; // Flag to ignore stale "finished" messages
+        let loadingInterval = null; // Interval for animated loading dots
+        let spectrogramInitialized = false; // Flag to track if spectrogram has been cleared for first time
+        let spectrogramScrollSpeed = 1.0; // Scroll speed multiplier (default 1.0x)
+        let spectrogramFrameCounter = 0; // Frame counter for controlling scroll speed
+        let visualizationStarted = false; // Flag to prevent multiple visualization loops
+        let currentMetadata = null; // Store metadata for duration calculation
+        let playbackStartTime = null; // Track when playback started (for position tracking)
+        let playbackPositionInterval = null; // Interval for updating position
+        let pausedPosition = 0; // Track position when paused (in seconds)
+        let playbackDurationSeconds = null; // Store calculated playback duration in seconds
+        
+        // AudioWorklet processor code
+        const workletCode = `
+            class SeismicProcessor extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.maxBufferSize = 44100 * 60; // 60 seconds max
+                    this.buffer = new Float32Array(this.maxBufferSize);
+                    this.buffer.fill(0);
+                    this.writeIndex = 0;
+                    this.readIndex = 0;
+                    this.samplesInBuffer = 0;
+                    this.isPlaying = false;
+                    this.hasStarted = false;
+                    this.minBufferBeforePlay = 44100 * 1; // 1 second
+                    this.speed = 1.0;
+                    this.finishSent = false; // Prevent duplicate 'finished' messages
+                    this.loopWarningShown = false; // Track if we've warned about upcoming loop
+                    this.dataLoadingComplete = false; // Track when all data has been sent
+                    this.totalSamples = 0; // Track total samples loaded (for looping)
+                    
+                    this.port.onmessage = (event) => {
+                        const { type, data, speed } = event.data;
+                        
+                        if (type === 'audio-data') {
+                            this.addSamples(data);
+                        } else if (type === 'pause') {
+                            this.isPlaying = false;
+                        } else if (type === 'resume') {
+                            this.isPlaying = true;
+                        } else if (type === 'set-speed') {
+                            this.speed = speed;
+                        } else if (type === 'data-complete') {
+                            this.dataLoadingComplete = true;
+                            this.totalSamples = this.samplesInBuffer; // Store total for looping
+                        } else if (type === 'reset') {
+                            // Full reset - clears buffer (used when fetching new data)
+                            this.buffer.fill(0);
+                            this.readIndex = 0;
+                            this.writeIndex = 0;
+                            this.samplesInBuffer = 0;
+                            this.isPlaying = true;
+                            this.hasStarted = true;
+                            this.finishSent = false;
+                            this.loopWarningShown = false;
+                            this.dataLoadingComplete = false;
+                            this.totalSamples = 0;
+                            this.speed = 1.0;
+                        } else if (type === 'loop') {
+                            // Loop reset - just go back to start, keep buffer intact
+                            const previousReadIndex = this.readIndex;
+                            const previousSamplesInBuffer = this.samplesInBuffer;
+                            this.readIndex = 0;  // Go back to first sample
+                            this.samplesInBuffer = this.totalSamples;  // Restore total samples available
+                            this.isPlaying = true;  // Keep playing
+                            this.finishSent = false;  // Allow another 'finished' message
+                            this.loopWarningShown = false; // Reset loop warning
+                            console.log('🔄 WORKLET LOOP: ReadIndex ' + previousReadIndex + ' -> 0, SamplesInBuffer ' + previousSamplesInBuffer + ' -> ' + this.totalSamples + ', Speed: ' + this.speed.toFixed(2) + 'x');
+                            // Keep buffer, writeIndex, hasStarted, dataLoadingComplete, speed intact
+                        }
+                    };
+                }
+                
+                addSamples(samples) {
+                    // Expand buffer if needed
+                    const neededSize = this.samplesInBuffer + samples.length;
+                    if (neededSize > this.maxBufferSize) {
+                        const newSize = Math.max(neededSize, this.maxBufferSize * 2);
+                        const newBuffer = new Float32Array(newSize);
+                        
+                        // Copy existing data (handle circular buffer wrap-around)
+                        for (let i = 0; i < this.samplesInBuffer; i++) {
+                            const srcIdx = (this.readIndex + i) % this.maxBufferSize;
+                            newBuffer[i] = this.buffer[srcIdx];
+                        }
+                        
+                        this.buffer = newBuffer;
+                        this.maxBufferSize = newSize;
+                        this.readIndex = 0;
+                        this.writeIndex = this.samplesInBuffer;
+                        
+                        console.log('📏 Expanded buffer to ' + (newSize / 44100 / 60).toFixed(1) + ' minutes');
+                    }
+                    
+                    // Add new samples
+                    for (let i = 0; i < samples.length; i++) {
+                        this.buffer[this.writeIndex] = samples[i];
+                        this.writeIndex = (this.writeIndex + 1) % this.maxBufferSize;
+                        this.samplesInBuffer++;
+                    }
+                    
+                    if (!this.hasStarted && this.samplesInBuffer >= this.minBufferBeforePlay) {
+                        this.readIndex = 0; // Reset read index after potential expansion
+                        this.isPlaying = true;
+                        this.hasStarted = true;
+                        this.port.postMessage({ type: 'started' });
+                    }
+                }
+                
+                process(inputs, outputs, parameters) {
+                    const output = outputs[0];
+                    const channel = output[0];
+                    
+                    if (!this.isPlaying) {
+                        channel.fill(0);
+                        return true;
+                    }
+                    
+                    const samplesToRead = Math.ceil(channel.length * this.speed);
+                    
+                    // Detect near-end for gapless looping (send warning with ~100ms left)
+                    const loopWarningThreshold = 44100 * 0.1; // 100ms at 44.1kHz
+                    if (this.samplesInBuffer < loopWarningThreshold && !this.loopWarningShown && this.hasStarted) {
+                        const remainingSeconds = this.samplesInBuffer / 44100;
+                        const remainingMs = remainingSeconds * 1000;
+                        this.port.postMessage({ 
+                            type: 'loop-soon',
+                            samplesRemaining: this.samplesInBuffer,
+                            secondsRemaining: remainingSeconds,
+                            speed: this.speed
+                        });
+                        this.loopWarningShown = true;
+                    }
+                    
+                    // STEP 1: Fill the output buffer with audio samples
+                    if (this.samplesInBuffer < samplesToRead) {
+                        // Underrun: output available samples, then silence
+                        const availableForOutput = Math.min(this.samplesInBuffer, channel.length);
+                        for (let i = 0; i < availableForOutput; i++) {
+                            channel[i] = this.buffer[this.readIndex];
+                            this.readIndex = (this.readIndex + 1) % this.maxBufferSize;
+                            this.samplesInBuffer--;
+                        }
+                        for (let i = availableForOutput; i < channel.length; i++) {
+                            channel[i] = 0;
+                        }
+                        
+                        if (this.samplesInBuffer === 0) {
+                            // Send 'finished' message once, but ONLY if:
+                            // 1. We've actually started playing
+                            // 2. All data has been loaded (not just a temporary underrun)
+                            if (!this.finishSent && this.hasStarted && this.dataLoadingComplete) {
+                                this.isPlaying = false;
+                                // Expected duration at current speed: totalSamples / (sampleRate * speed)
+                                const expectedDuration = this.totalSamples / (44100 * this.speed);
+                                this.port.postMessage({ 
+                                    type: 'finished',
+                                    totalSamples: this.totalSamples,
+                                    speed: this.speed,
+                                    expectedDurationSeconds: expectedDuration
+                                });
+                                this.finishSent = true;
+                            }
+                            // ✅ Output silence but keep worklet alive for potential loop or more data
+                            channel.fill(0);
+                            return true;  // Keep worklet alive!
+                        }
+                    } else {
+                        // Normal playback with variable speed
+                        if (this.speed === 1.0) {
+                            // Normal speed - just copy
+                            for (let i = 0; i < channel.length; i++) {
+                                channel[i] = this.buffer[this.readIndex];
+                                this.readIndex = (this.readIndex + 1) % this.maxBufferSize;
+                                this.samplesInBuffer--;
+                            }
+                        } else {
+                            // Variable speed - linear interpolation
+                            let sourcePos = 0;
+                            for (let i = 0; i < channel.length; i++) {
+                                const readPos = Math.floor(sourcePos);
+                                if (readPos < samplesToRead - 1) {
+                                    const frac = sourcePos - readPos;
+                                    const idx1 = (this.readIndex + readPos) % this.maxBufferSize;
+                                    const idx2 = (this.readIndex + readPos + 1) % this.maxBufferSize;
+                                    channel[i] = this.buffer[idx1] * (1 - frac) + this.buffer[idx2] * frac;
+                                } else {
+                                    channel[i] = this.buffer[(this.readIndex + readPos) % this.maxBufferSize];
+                                }
+                                sourcePos += this.speed;
+                            }
+                            this.readIndex = (this.readIndex + samplesToRead) % this.maxBufferSize;
+                            this.samplesInBuffer -= samplesToRead;
+                        }
+                    }
+                    
+                    // No fade logic here - let gain node handle it!
+                    // AudioWorklet just outputs clean audio
+                    
+                    // Send metrics periodically (sample position for current position display)
+                    if (this.hasStarted && Math.random() < 0.01) {
+                        const samplesConsumed = this.totalSamples - this.samplesInBuffer;
+                        this.port.postMessage({
+                            type: 'metrics',
+                            bufferSize: this.samplesInBuffer,
+                            samplesConsumed: samplesConsumed,
+                            totalSamples: this.totalSamples
+                        });
+                    }
+                    
+                    return true;
+                }
+            }
+            
+            registerProcessor('seismic-processor', SeismicProcessor);
+        `;
+        
+        // Initialize AudioWorklet
+        async function initAudioWorklet() {
+            if (!audioContext) {
+                audioContext = new AudioContext({ sampleRate: 44100 });
+                const workletBlob = new Blob([workletCode], { type: 'application/javascript' });
+                await audioContext.audioWorklet.addModule(URL.createObjectURL(workletBlob));
+            }
+            
+            workletNode = new AudioWorkletNode(audioContext, 'seismic-processor');
+            analyserNode = audioContext.createAnalyser();
+            analyserNode.fftSize = 2048;
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = 0.0001; // Start at near-zero for fade-in
+            
+            workletNode.connect(gainNode);
+            gainNode.connect(analyserNode);
+            gainNode.connect(audioContext.destination);
+            
+            workletNode.port.onmessage = (event) => {
+                const { type, bufferSize, samplesConsumed, totalSamples } = event.data;
+                
+                if (type === 'metrics') {
+                    // Update current position based on actual sample position
+                    if (samplesConsumed !== undefined && totalSamples && totalSamples > 0) {
+                        updateCurrentPositionFromSamples(samplesConsumed, totalSamples);
+                    }
+                } else if (type === 'started') {
+                    const ttfa = performance.now() - streamStartTime;
+                    document.getElementById('ttfa').textContent = `${ttfa.toFixed(0)}ms`;
+                    console.log(`⏱️ TIME TO FIRST AUDIO: ${ttfa.toFixed(0)}ms`);
+                    
+                    // Start position tracking
+                    startPositionTracking();
+                    
+                    // Fade in using exponential ramp (sounds more natural)
+                    if (gainNode) {
+                        const targetVolume = parseFloat(document.getElementById('volumeSlider').value) / 100;
+                        gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime); // Start near-zero
+                        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, targetVolume), audioContext.currentTime + 0.05); // 50ms exponential fade-in
+                        console.log(`🎚️ Exponential fade-in: 0.0001 → ${targetVolume.toFixed(2)}`);
+                    }
+                } else if (type === 'loop-soon') {
+                    // Gapless loop warning: ~100ms left, start preparing next loop
+                    const { samplesRemaining, secondsRemaining, speed } = event.data;
+                    const remainingMs = secondsRemaining * 1000;
+                    console.log(`⏱️ APPROACHING END: ${samplesRemaining.toLocaleString()} samples remaining (${remainingMs.toFixed(1)}ms @ speed ${speed.toFixed(2)}x)`);
+                    
+                    if (isLooping && allReceivedData && allReceivedData.length > 0) {
+                        console.log('🔁 Loop approaching - preparing gapless transition...');
+                        // Note: We'll still do the full reset on 'finished' for clean fade
+                        // This just gives us advanced warning for future optimization
+                    }
+                } else if (type === 'finished') {
+                    // Ignore "finished" messages if we're fetching new data (stale message from old worklet)
+                    if (isFetchingNewData) {
+                        console.log('⚠️ Ignoring stale "finished" message - new data is being fetched');
+                        return;
+                    }
+                    
+                    const { totalSamples, speed, expectedDurationSeconds } = event.data;
+                    const durationAt1x = totalSamples / 44100;
+                    console.log(`🏁 BUFFER EMPTY: Total samples: ${totalSamples.toLocaleString()}, Speed: ${speed.toFixed(2)}x, Duration @ 1x: ${durationAt1x.toFixed(3)}s, Expected @ ${speed.toFixed(2)}x: ${expectedDurationSeconds.toFixed(3)}s`);
+                    
+                    // Fade out before handling finish
+                    const fadeOutStartTime = audioContext.currentTime;
+                    if (gainNode) {
+                        const currentGain = gainNode.gain.value;
+                        gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(currentGain, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05); // 50ms exponential fade-out
+                        console.log(`🔽 FADE-OUT START: Current gain: ${currentGain.toFixed(4)}, Target: 0.0001, Duration: 50ms, Audio time: ${fadeOutStartTime.toFixed(3)}s`);
+                    }
+                    
+                    // Wait for fade, then handle loop/finish
+                    setTimeout(() => {
+                        const fadeOutCompleteTime = audioContext.currentTime;
+                        const fadeOutDuration = fadeOutCompleteTime - fadeOutStartTime;
+                        console.log(`🔽 FADE-OUT COMPLETE: Audio time: ${fadeOutCompleteTime.toFixed(3)}s, Actual fade duration: ${(fadeOutDuration * 1000).toFixed(1)}ms`);
+                        
+                        // Double-check we're still not fetching new data
+                        if (isFetchingNewData) {
+                            console.log('⚠️ Ignoring finish handler - new data fetch in progress');
+                            return;
+                        }
+                        
+                        // Handle looping
+                        if (isLooping && allReceivedData && allReceivedData.length > 0) {
+                            console.log('🔁 LOOPING: Going back to first sample (buffer intact)...');
+                            
+                            // Just reset read pointer - no need to reload data!
+                            workletNode.port.postMessage({ type: 'loop' });
+                            console.log('🔄 Read pointer reset to start (buffer unchanged)');
+                            
+                            // Ensure playback speed is current (multiplier applied)
+                            updatePlaybackSpeed();
+                            console.log(`🎚️ Playback speed: ${currentPlaybackRate.toFixed(2)}x (base slider speed × multiplier)`);
+                            
+                            // Fade back in for loop
+                            const fadeInStartTime = audioContext.currentTime;
+                            if (gainNode) {
+                                const targetVolume = parseFloat(document.getElementById('volumeSlider').value) / 100;
+                                const currentGain = gainNode.gain.value;
+                                gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                                gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, targetVolume), audioContext.currentTime + 0.05);
+                                console.log(`🔼 FADE-IN START: Current gain: ${currentGain.toFixed(4)}, Start: 0.0001, Target: ${targetVolume.toFixed(2)}, Duration: 50ms, Audio time: ${fadeInStartTime.toFixed(3)}s`);
+                            }
+                            
+                            // No need to reload data - it's already in the buffer!
+                        } else {
+                            // Not looping - playback finished
+                            isPlaying = false;
+                            stopPositionTracking();
+                            const playBtn = document.getElementById('playPauseBtn');
+                            playBtn.disabled = false;
+                            playBtn.textContent = '▶️ Play';
+                            playBtn.classList.add('pulse-play');
+                            document.getElementById('status').className = 'status success';
+                            document.getElementById('status').textContent = '✅ Playback finished! Click Play to replay or enable Loop.';
+                        }
+                    }, 50);
+                }
+            };
+            
+            startVisualization();
+        }
+        
+        // High-pass filter function (IIR) - EXACT COPY from test_audioworklet_browser_processing.html
+        function applyHighPassFilter(data, sampleRate = 100, cutoffHz = 0.5) {
+            const RC = 1.0 / (2 * Math.PI * cutoffHz);
+            const alpha = RC / (RC + 1 / sampleRate);
+            
+            const filtered = new Float32Array(data.length);
+            
+            // Local filter state (starts fresh for entire array)
+            let prevX = 0;
+            let prevY = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                const x = data[i];
+                
+                // Check for non-finite values
+                if (!Number.isFinite(x)) {
+                    console.warn(`Non-finite input at filter sample ${i}: ${x}`);
+                    filtered[i] = 0;
+                    prevX = 0;
+                    prevY = 0;
+                    continue;
+                }
+                
+                const y = alpha * (prevY + x - prevX);
+                
+                // Check output
+                if (!Number.isFinite(y)) {
+                    console.warn(`Non-finite output at filter sample ${i}: ${y}`);
+                    filtered[i] = 0;
+                    prevX = 0;
+                    prevY = 0;
+                    continue;
+                }
+                
+                filtered[i] = y;
+                prevX = x;
+                prevY = y;
+            }
+            
+            return filtered;
+        }
+        
+        // Normalize function - EXACT COPY from test_audioworklet_browser_processing.html
+        function normalize(data) {
+            let max = 0;
+            for (let i = 0; i < data.length; i++) {
+                const absVal = Math.abs(data[i]);
+                if (absVal > max) max = absVal;
+            }
+            
+            if (max === 0) return data;
+            
+            const normalized = new Float32Array(data.length);
+            for (let i = 0; i < data.length; i++) {
+                normalized[i] = data[i] / max;
+            }
+            
+            return normalized;
+        }
+        
+        async function startStreaming(event) {
+            try {
+                // Prevent any default form submission behavior
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                
+                console.log('🎬 startStreaming() called');
+                
+                // Get selected station
+                const stationValue = document.getElementById('station').value;
+                if (!stationValue) {
+                    alert('Please select a station');
+                    return;
+                }
+                
+                const stationData = JSON.parse(stationValue);
+                const duration = parseFloat(document.getElementById('duration').value);
+                const highpassFreq = document.getElementById('highpassFreq').value;
+                const enableNormalize = document.getElementById('enableNormalize').checked;
+                
+                // ===== STOP OLD PLAYBACK AND CLEAN UP =====
+                // Set flag to ignore any stale "finished" messages
+                isFetchingNewData = true;
+                // Reset spectrogram initialization flag so canvas clears on new stream
+                spectrogramInitialized = false;
+                
+                // Immediately update status to show fetching (don't wait for fade-out)
+                const useLocal = document.getElementById('useLocalServer').checked;
+                const baseMessage = useLocal 
+                    ? 'Fetching data from local backend'
+                    : 'Fetching data from Render backend';
+                document.getElementById('status').className = 'status info loading';
+                document.getElementById('status').textContent = baseMessage;
+                
+                if (workletNode) {
+                    console.log('🛑 Stopping old playback and cleaning up for new data...');
+                    
+                    // Clear the old worklet's message handler FIRST to prevent queued messages
+                    workletNode.port.onmessage = null;
+                    
+                    // Fade out current playback if playing (but don't wait - status already updated)
+                    if (gainNode && audioContext && isPlaying) {
+                        gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05);
+                        // Don't await - let fade happen in background while we continue
+                    }
+                    
+                    // Disconnect old worklet node (disconnects from gainNode automatically)
+                    workletNode.disconnect();
+                    workletNode = null;
+                    
+                    // Disconnect old gain node (if it exists)
+                    if (gainNode) {
+                        gainNode.disconnect();
+                        gainNode = null;
+                    }
+                    
+                    // Clear old data
+                    allReceivedData = [];
+                    currentMetadata = null; // Clear metadata for duration calculation
+                    document.getElementById('playbackDuration').textContent = '--'; // Reset duration display
+                    window.playbackDurationSeconds = null; // Clear stored duration
+                    stopPositionTracking(); // Stop position tracking
+                    document.getElementById('currentPosition').textContent = '0m 0s'; // Reset position display
+                    
+                    // Reset playback state
+                    isPlaying = false;
+                    isPaused = false;
+                    
+                    console.log('✅ Old playback stopped and cleaned up');
+                }
+                
+                // Initialize fresh AudioWorklet (will create new node)
+                await initAudioWorklet();
+                
+                // Update UI - disable all playback controls during fetch
+                const startBtn = document.getElementById('startBtn');
+                const playPauseBtn = document.getElementById('playPauseBtn');
+                
+                startBtn.classList.add('streaming');
+                startBtn.disabled = true;
+                
+                // Disable and grey out pause button
+                playPauseBtn.disabled = true;
+                playPauseBtn.textContent = '⏸️ Pause';  // Set text even when disabled
+                playPauseBtn.classList.remove('pause-active', 'play-active', 'loop-active', 'pulse-play', 'pulse-resume');
+                
+                // Disable and grey out loop button
+                const loopBtn = document.getElementById('loopBtn');
+                loopBtn.disabled = true;
+                loopBtn.classList.remove('loop-active');
+                
+                isPlaying = true;
+                isPaused = false;
+                streamStartTime = performance.now();
+                
+                // Calculate time range (most recent data)
+                const endTime = new Date();
+                const startTime = new Date(endTime.getTime() - duration * 3600 * 1000);
+                
+                const formatTime = (date) => {
+                    return date.toISOString().slice(0, 19);
+                };
+                
+                // Request data from backend (backend will apply high-pass filter)
+                const highpassValue = highpassFreq === 'none' ? 0 : parseFloat(highpassFreq);
+                const requestBody = {
+                    network: stationData.network,
+                    station: stationData.station,
+                    location: stationData.location || '',
+                    channel: stationData.channel,
+                    starttime: formatTime(startTime),
+                    duration: duration * 3600,
+                    highpass_hz: highpassValue,  // Backend will apply high-pass filter
+                    normalize: false,  // NO server-side normalization (done in browser)
+                    send_raw: false  // Send float32
+                };
+                
+                console.log('📡 Requesting:', requestBody);
+                
+                // Determine backend URL based on checkbox (useLocal already defined above)
+                const backendUrl = useLocal 
+                    ? 'http://localhost:5001/api/stream-audio'
+                    : 'https://volcano-audio.onrender.com/api/stream-audio';
+                
+                const backendType = useLocal ? 'local' : 'Render.com';
+                console.log(`🌐 Using ${backendType} backend: ${backendUrl}`);
+                
+                // Start animated loading indicator with growing periods (2 per second)
+                // (baseMessage already defined above)
+                
+                let dotCount = 0;
+                loadingInterval = setInterval(() => {
+                    dotCount++; // Keep growing dots continuously
+                    const statusEl = document.getElementById('status');
+                    statusEl.textContent = baseMessage + '.'.repeat(dotCount);
+                    // Ensure loading class is maintained
+                    if (!statusEl.classList.contains('loading')) {
+                        statusEl.classList.add('loading');
+                    }
+                }, 500); // Update every 500ms (2 per second)
+                
+                console.log('🔄 About to fetch from:', backendUrl);
+                
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    mode: 'cors',  // Explicitly set CORS mode
+                    credentials: 'omit'  // Don't send credentials
+                }).catch(fetchError => {
+                    console.error('🚫 Fetch failed:', fetchError);
+                    console.error('🚫 Fetch error details:', {
+                        message: fetchError.message,
+                        name: fetchError.name,
+                        stack: fetchError.stack
+                    });
+                    throw fetchError;  // Re-throw to be caught by outer try-catch
+                });
+                
+                console.log('✅ Fetch succeeded, response:', response);
+                console.log('✅ Response status:', response.status, response.statusText);
+                console.log('✅ Response headers:', [...response.headers.entries()]);
+                
+                if (!response.ok) {
+                    // Try to get error message from response
+                    let errorMsg = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        if (errorData.error) {
+                            errorMsg = errorData.error;
+                        }
+                    } catch (e) {
+                        // Response might not be JSON, use status text
+                        errorMsg = response.statusText || `HTTP ${response.status}`;
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+                // Get response
+                const receivedBlob = await response.arrayBuffer();
+                const downloadSize = (receivedBlob.byteLength / 1024 / 1024).toFixed(2);
+                document.getElementById('downloadSize').textContent = `${downloadSize} MB`;
+                console.log(`📦 Received: ${downloadSize} MB`);
+                
+                // Decompress if needed
+                let decompressed;
+                const compression = response.headers.get('X-Compression');
+                if (compression === 'zstd') {
+                    console.log('🗜️ Decompressing with zstd...');
+                    decompressed = fzstd.decompress(new Uint8Array(receivedBlob));
+                    console.log(`✅ Decompressed: ${(decompressed.length / 1024 / 1024).toFixed(2)} MB`);
+                } else {
+                    console.log('⏭️ No compression');
+                    decompressed = new Uint8Array(receivedBlob);
+                }
+                
+                // Parse: [metadata_length (4 bytes)] [metadata_json] [float32_samples]
+                const view = new DataView(decompressed.buffer, decompressed.byteOffset, decompressed.byteLength);
+                const metadataLength = view.getUint32(0, true);
+                const metadataBytes = decompressed.slice(4, 4 + metadataLength);
+                const metadataJson = new TextDecoder().decode(metadataBytes);
+                const metadata = JSON.parse(metadataJson);
+                
+                console.log('📋 Metadata:', metadata);
+                
+                // Store metadata for duration calculation
+                currentMetadata = metadata;
+                
+                // Update high-pass filter display with correct original sample rate
+                updateHighPassFilterDisplay();
+                
+                // Log backend filtering info
+                if (metadata.highpass_hz && metadata.highpass_hz > 0) {
+                    console.log(`🎛️ Backend applied ${metadata.highpass_hz} Hz high-pass filter`);
+                } else {
+                    console.log('🎛️ No high-pass filter applied by backend');
+                }
+                
+                // Extract samples
+                const samplesOffset = 4 + metadataLength;
+                const samplesBytes = decompressed.slice(samplesOffset);
+                let samples = new Float32Array(samplesBytes.buffer, samplesBytes.byteOffset, samplesBytes.length / 4);
+                
+                console.log(`✅ Got ${samples.length.toLocaleString()} samples @ ${metadata.original_sample_rate} Hz`);
+                
+                // Calculate min/max without spread operator (avoids stack overflow)
+                let min = Infinity, max = -Infinity;
+                for (let i = 0; i < samples.length; i++) {
+                    if (samples[i] < min) min = samples[i];
+                    if (samples[i] > max) max = samples[i];
+                }
+                console.log(`🔍 Sample range: [${min.toFixed(3)}, ${max.toFixed(3)}]`);
+                document.getElementById('sampleCount').textContent = samples.length.toLocaleString();
+                
+                // ===== BROWSER-SIDE PROCESSING =====
+                
+                // Note: High-pass filtering is done by the backend (already applied)
+                // Backend used highpass_hz parameter from request
+                
+                // Normalize
+                if (enableNormalize) {
+                    console.log('📏 Normalizing...');
+                    const normStart = performance.now();
+                    samples = normalize(samples);
+                    const normTime = performance.now() - normStart;
+                    let minN = Infinity, maxN = -Infinity;
+                    for (let i = 0; i < samples.length; i++) {
+                        if (samples[i] < minN) minN = samples[i];
+                        if (samples[i] > maxN) maxN = samples[i];
+                    }
+                    console.log(`✅ Normalized in ${normTime.toFixed(2)}ms | Range: [${minN.toFixed(3)}, ${maxN.toFixed(3)}]`);
+                }
+                
+                // Send to AudioWorklet in chunks (prevents blocking audio thread)
+                console.log('🎵 Sending to AudioWorklet in 1024-sample chunks...');
+                const WORKLET_CHUNK_SIZE = 1024;
+                allReceivedData = [];
+                
+                for (let i = 0; i < samples.length; i += WORKLET_CHUNK_SIZE) {
+                    const chunkSize = Math.min(WORKLET_CHUNK_SIZE, samples.length - i);
+                    const chunk = samples.slice(i, i + chunkSize);
+                    
+                    workletNode.port.postMessage({
+                        type: 'audio-data',
+                        data: chunk
+                    });
+                    
+                    allReceivedData.push(chunk);
+                }
+                
+                console.log(`✅ Sent ${allReceivedData.length} chunks to AudioWorklet`);
+                
+                // Signal that all data has been sent
+                workletNode.port.postMessage({ type: 'data-complete' });
+                
+                // Set playback speed to current setting (with multiplier applied)
+                updatePlaybackSpeed();
+                console.log(`🎚️ Set playback speed for new data: ${currentPlaybackRate.toFixed(2)}x (base slider speed × multiplier)`);
+                
+                // Update playback duration display
+                updatePlaybackDuration();
+                
+                // Clear the fetching flag - new data is loaded and ready
+                isFetchingNewData = false;
+                
+                // Stop loading animation
+                if (loadingInterval) {
+                    clearInterval(loadingInterval);
+                    loadingInterval = null;
+                }
+                
+                // Re-enable playback controls after data is fetched
+                playPauseBtn.disabled = false;
+                playPauseBtn.textContent = '⏸️ Pause';
+                playPauseBtn.classList.remove('play-active', 'secondary');
+                playPauseBtn.classList.add('pause-active');
+                
+                document.getElementById('loopBtn').disabled = false;
+                
+                document.getElementById('status').className = 'status success';
+                document.getElementById('status').textContent = '✅ Playing!';
+                console.log('✅ Streaming complete');
+                
+            } catch (error) {
+                // Clear the fetching flag on error too
+                isFetchingNewData = false;
+                
+                // Stop loading animation
+                if (loadingInterval) {
+                    clearInterval(loadingInterval);
+                    loadingInterval = null;
+                }
+                
+                console.error('❌ Error:', error);
+                console.error('Stack:', error.stack);
+                document.getElementById('status').className = 'status error';
+                document.getElementById('status').textContent = `Error: ${error.message}`;
+                
+                const startBtn = document.getElementById('startBtn');
+                startBtn.disabled = false;
+                startBtn.classList.remove('streaming');
+                
+                document.getElementById('playPauseBtn').disabled = true;
+                document.getElementById('loopBtn').disabled = true;
+            }
+        }
+        
+        function togglePlayPause() {
+            if (!audioContext) return;
+            
+            const btn = document.getElementById('playPauseBtn');
+            
+            // If playback has finished and we have data, "Play" means replay from beginning
+            if (!isPlaying && allReceivedData && allReceivedData.length > 0) {
+                console.log('▶️ PLAY AGAIN: Replaying data from beginning');
+                
+                // Remove pulse animations
+                btn.classList.remove('pulse-play', 'pulse-resume');
+                
+                // Fade in the gain node with exponential ramp
+                if (gainNode) {
+                    const targetVolume = parseFloat(document.getElementById('volumeSlider').value) / 100;
+                    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime); // Start near-zero (exponential can't hit 0)
+                    gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, targetVolume), audioContext.currentTime + 0.05); // 50ms exponential fade
+                }
+                
+                // Reinitialize worklet for clean restart
+                workletNode.disconnect();
+                workletNode = null;
+                initAudioWorklet().then(() => {
+                    // Reset spectrogram frame counter for clean replay
+                    spectrogramFrameCounter = 0;
+                    
+                    // Restore playback speed (with multiplier applied)
+                    updatePlaybackSpeed();
+                    console.log(`🎚️ Restored playback speed for replay: ${currentPlaybackRate.toFixed(2)}x (base slider speed × multiplier)`);
+                    
+                    // Send all chunks back to worklet
+                    for (let i = 0; i < allReceivedData.length; i++) {
+                        workletNode.port.postMessage({
+                            type: 'audio-data',
+                            data: allReceivedData[i]
+                        });
+                    }
+                    
+                    // Signal that all data has been sent
+                    workletNode.port.postMessage({ type: 'data-complete' });
+                    
+                    isPlaying = true;
+                    isPaused = false;
+                    btn.textContent = '⏸️ Pause';
+                    btn.classList.remove('play-active', 'pulse-play', 'pulse-resume');
+                    btn.classList.add('pause-active');
+                    document.getElementById('status').className = 'status info';
+                    document.getElementById('status').textContent = 'Replaying audio...';
+                });
+                
+                return;
+            }
+            
+            // Normal pause/resume behavior during active playback
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                console.log('⏸️ PAUSING - exponential fade to near-zero (keep audio running)');
+                
+                // Pause position tracking
+                pausePositionTracking();
+                
+                // Fade to near-zero with exponential ramp (don't suspend AudioContext!)
+                if (gainNode) {
+                    gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05); // 50ms exponential fade to near-zero
+                    console.log(`🎚️ Exponential fade: ${gainNode.gain.value.toFixed(4)} → 0.0001`);
+                }
+                
+                // Tell worklet to stop consuming samples
+                setTimeout(() => {
+                    if (workletNode) {
+                        workletNode.port.postMessage({ type: 'pause' });
+                        console.log('⏸️ Worklet paused (stopped consuming samples)');
+                    }
+                }, 50); // Wait for fade
+                
+                btn.textContent = '▶️ Resume';
+                btn.classList.remove('pause-active', 'pulse-play');
+                btn.classList.add('play-active', 'pulse-resume');
+                document.getElementById('status').className = 'status';
+                document.getElementById('status').textContent = 'Paused';
+            } else {
+                console.log('▶️ RESUMING - exponential fade back to target volume');
+                
+                // Resume position tracking
+                resumePositionTracking();
+                
+                // Remove pulse animations if present
+                btn.classList.remove('pulse-play', 'pulse-resume');
+                
+                btn.textContent = '⏸️ Pause';
+                btn.classList.remove('play-active');
+                btn.classList.add('pause-active');
+                document.getElementById('status').className = 'status info';
+                document.getElementById('status').textContent = 'Playing...';
+                
+                // Tell worklet to resume consuming samples
+                if (workletNode) {
+                    workletNode.port.postMessage({ type: 'resume' });
+                    console.log('▶️ Worklet resumed (consuming samples again)');
+                }
+                
+                // Fade back to target volume with exponential ramp
+                if (gainNode) {
+                    const targetVolume = parseFloat(document.getElementById('volumeSlider').value) / 100;
+                    gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, targetVolume), audioContext.currentTime + 0.05); // 50ms exponential fade
+                    console.log(`🎚️ Exponential fade: ${gainNode.gain.value.toFixed(4)} → ${targetVolume.toFixed(2)}`);
+                }
+            }
+        }
+        
+        function toggleLoop() {
+            isLooping = !isLooping;
+            const btn = document.getElementById('loopBtn');
+            
+            if (isLooping) {
+                btn.classList.remove('secondary');
+                btn.classList.add('loop-active');
+                btn.textContent = '🔁 Loop ON';
+                console.log('🔁 Looping enabled');
+            } else {
+                btn.classList.remove('loop-active');
+                btn.textContent = '🔁 Loop';
+                console.log('🔁 Looping disabled');
+            }
+        }
+        
+        // Calculate slider value for 1.0x speed (reversing the log function)
+        function calculateSliderForSpeed(targetSpeed) {
+            // Inverse of changePlaybackSpeed() logarithmic mapping
+            // 0.1-10 -> 0-1000, with 1.0 = 667
+            if (targetSpeed <= 1.0) {
+                // Range: 0.1 to 1.0 maps to 0 to 667
+                const normalized = Math.log(targetSpeed / 0.1) / Math.log(10);
+                return Math.round(normalized * 667);
+            } else {
+                // Range: 1.0 to 10.0 maps to 667 to 1000
+                const normalized = Math.log(targetSpeed) / Math.log(10);
+                return Math.round(667 + normalized * 333);
+            }
+        }
+        
+        function getBaseSampleRateMultiplier() {
+            const baseSampleRateSelect = document.getElementById('baseSampleRate');
+            const selectedRate = parseFloat(baseSampleRateSelect.value);
+            // Multiplier is relative to 44.1 kHz
+            return selectedRate / 44100;
+        }
+        
+        function formatSampleRateShorthand(rate) {
+            // Format sample rate for display: 44100 -> "44.1k", 1000000 -> "1M", etc.
+            if (rate >= 1000000) {
+                return (rate / 1000000).toFixed(0) + 'M';
+            } else if (rate >= 1000) {
+                const khz = rate / 1000;
+                // Show one decimal place if not whole number (e.g., 44.1k, 48k)
+                return khz % 1 === 0 ? khz.toFixed(0) + 'k' : khz.toFixed(1) + 'k';
+            }
+            return rate.toString();
+        }
+        
+        function updateHighPassFilterDisplay() {
+            // Update high-pass filter label and dropdown options based on selected base sampling rate
+            const baseSampleRateSelect = document.getElementById('baseSampleRate');
+            const selectedRate = parseFloat(baseSampleRateSelect.value);
+            const shorthand = formatSampleRateShorthand(selectedRate);
+            
+            // Update label
+            const label = document.getElementById('highpassLabel');
+            label.textContent = `High Pass (@ ${shorthand}):`;
+            
+            // Update dropdown options with calculated frequencies
+            const highpassSelect = document.getElementById('highpassFreq');
+            const selectedValue = highpassSelect.value; // Preserve current selection
+            
+            // Calculate audio frequencies based on speedup from original sample rate to base sampling rate
+            // Formula: audio_freq = original_freq × (base_rate / original_rate)
+            // This accounts for both the speedup to 44.1k AND the multiplier to the selected base rate
+            let originalSampleRate = 100; // Default to 100 Hz for seismic data if metadata not available
+            if (currentMetadata && currentMetadata.original_sample_rate) {
+                originalSampleRate = currentMetadata.original_sample_rate;
+            }
+            
+            // Total speedup = base_rate / original_rate
+            const totalSpeedup = selectedRate / originalSampleRate;
+            const freq001Hz = 0.01 * totalSpeedup;
+            const freq0045Hz = 0.045 * totalSpeedup;
+            
+            // Format frequencies (show decimals if needed, but round to reasonable precision)
+            const formatFreq = (freq) => {
+                if (freq < 1) {
+                    return freq.toFixed(2) + ' Hz';
+                } else if (freq < 10) {
+                    return freq.toFixed(1) + ' Hz';
+                } else {
+                    return freq.toFixed(0) + ' Hz';
+                }
+            };
+            
+            // Update option texts
+            const options = highpassSelect.options;
+            options[0].text = 'None'; // First option stays as None
+            options[1].text = `0.01 Hz (${formatFreq(freq001Hz)})`;
+            options[2].text = `0.045 Hz (${formatFreq(freq0045Hz)})`;
+            
+            // Restore selection
+            highpassSelect.value = selectedValue;
+        }
+        
+        function updatePlaybackSpeed() {
+            const slider = document.getElementById('playbackSpeed');
+            const value = parseFloat(slider.value);
+            
+            // Logarithmic mapping: 0-1000 -> 0.1-10, with 667 = 1.0
+            let baseSpeed;
+            if (value <= 667) {
+                const normalized = value / 667;
+                baseSpeed = 0.1 * Math.pow(10, normalized);
+            } else {
+                const normalized = (value - 667) / 333;
+                baseSpeed = Math.pow(10, normalized);
+            }
+            
+            // Display shows ONLY the slider value (not multiplied)
+            document.getElementById('speedValue').textContent = baseSpeed.toFixed(2) + 'x';
+            
+            // Apply base sample rate multiplier to actual playback speed
+            const multiplier = getBaseSampleRateMultiplier();
+            const finalSpeed = baseSpeed * multiplier;
+            
+            // Store final speed for worklet and loop logic
+            currentPlaybackRate = finalSpeed;
+            
+            if (workletNode) {
+                workletNode.port.postMessage({
+                    type: 'set-speed',
+                    speed: finalSpeed
+                });
+            }
+        }
+        
+        function resetSpeedTo1() {
+            // Reset base speed to 1.0x by setting slider to 667 (which is 1.0 in the logarithmic mapping)
+            const slider = document.getElementById('playbackSpeed');
+            slider.value = 667;
+            updatePlaybackSpeed();
+            updatePlaybackDuration();
+        }
+        
+        function resetVolumeTo1() {
+            // Reset volume to 1.0 by setting slider to 100 (which is 1.0)
+            const slider = document.getElementById('volumeSlider');
+            slider.value = 100;
+            changeVolume();
+        }
+        
+        function changePlaybackSpeed() {
+            updatePlaybackSpeed();
+            updatePlaybackDuration();
+        }
+        
+        function changeBaseSampleRate() {
+            // When base sample rate changes, update playback speed immediately
+            // This does NOT trigger a new fetch - just updates the playing audio speed
+            updateHighPassFilterDisplay(); // Update high-pass filter label and options
+            updatePlaybackSpeed();
+            updatePlaybackDuration();
+        }
+        
+        function updatePlaybackDuration() {
+            // Calculate playback duration based on samples, original sample rate, base multiplier, and speed
+            if (!currentMetadata || !allReceivedData || allReceivedData.length === 0) {
+                document.getElementById('playbackDuration').textContent = '--';
+                return;
+            }
+            
+            const totalSamples = currentMetadata.npts || allReceivedData.reduce((sum, chunk) => sum + chunk.length, 0);
+            const originalSampleRate = currentMetadata.original_sample_rate;
+            
+            if (!totalSamples || !originalSampleRate) {
+                document.getElementById('playbackDuration').textContent = '--';
+                return;
+            }
+            
+            // Get current speeds
+            const slider = document.getElementById('playbackSpeed');
+            const sliderValue = parseFloat(slider.value);
+            
+            // Calculate base speed from slider
+            let baseSpeed;
+            if (sliderValue <= 667) {
+                const normalized = sliderValue / 667;
+                baseSpeed = 0.1 * Math.pow(10, normalized);
+            } else {
+                const normalized = (sliderValue - 667) / 333;
+                baseSpeed = Math.pow(10, normalized);
+            }
+            
+            // Get multiplier from base sampling rate
+            const multiplier = getBaseSampleRateMultiplier();
+            const finalSpeed = baseSpeed * multiplier;
+            
+            // Calculate duration
+            // Original duration = totalSamples / originalSampleRate (real-world time in seconds)
+            // Uses actual originalSampleRate from metadata (e.g., 50 Hz, 100 Hz)
+            // AudioContext plays at 44.1 kHz, so there's a base speedup factor
+            // Base speedup = 44100 / originalSampleRate
+            // Final total speed = baseSpeedup × multiplier × baseSpeed
+            // Playback duration = originalDuration / totalSpeed
+            
+            const AUDIO_CONTEXT_SAMPLE_RATE = 44100;
+            const originalDuration = totalSamples / originalSampleRate;
+            const baseSpeedup = AUDIO_CONTEXT_SAMPLE_RATE / originalSampleRate;
+            const totalSpeed = baseSpeedup * multiplier * baseSpeed;
+            const playbackDurationSeconds = originalDuration / totalSpeed;
+            
+            // Store duration for position calculation
+            window.playbackDurationSeconds = playbackDurationSeconds;
+            
+            // Format duration as "Xm Ys" style
+            const minutes = Math.floor(playbackDurationSeconds / 60);
+            const seconds = Math.floor(playbackDurationSeconds % 60);
+            
+            let durationText;
+            if (minutes > 0) {
+                durationText = `${minutes}m ${seconds}s`;
+            } else {
+                durationText = `0m ${seconds}s`;
+            }
+            
+            document.getElementById('playbackDuration').textContent = durationText;
+        }
+        
+        function formatDuration(seconds) {
+            // Format seconds as "Xm Ys" style
+            const minutes = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${minutes}m ${secs}s`;
+        }
+        
+        function updateCurrentPositionFromSamples(samplesConsumed, totalSamples) {
+            // Calculate position from actual sample position: (samplesConsumed / totalSamples) × playbackDuration
+            if (!currentMetadata || !totalSamples || totalSamples <= 0 || samplesConsumed < 0) {
+                return;
+            }
+            
+            // Get playback duration (stored when calculated)
+            const totalDurationSeconds = window.playbackDurationSeconds;
+            
+            if (!totalDurationSeconds || !isFinite(totalDurationSeconds) || totalDurationSeconds <= 0) {
+                return;
+            }
+            
+            // Calculate position: (samplesConsumed / totalSamples) × totalDuration
+            const positionRatio = samplesConsumed / totalSamples;
+            const playbackPositionSeconds = positionRatio * totalDurationSeconds;
+            
+            if (!isFinite(playbackPositionSeconds) || playbackPositionSeconds < 0) {
+                return;
+            }
+            
+            document.getElementById('currentPosition').textContent = formatDuration(playbackPositionSeconds);
+        }
+        
+        function updateCurrentPosition() {
+            // This function is no longer used - position comes from worklet samples
+            // Keeping for backwards compatibility but it won't be called
+        }
+        
+        function startPositionTracking() {
+            // Position is now tracked from worklet sample position, not time-based
+            // Just reset the display
+            document.getElementById('currentPosition').textContent = '0m 0s';
+            console.log('▶️ Position tracking started (sample-based)');
+        }
+        
+        function stopPositionTracking() {
+            if (playbackPositionInterval) {
+                clearInterval(playbackPositionInterval);
+                playbackPositionInterval = null;
+            }
+        }
+        
+        function pausePositionTracking() {
+            // Position is tracked from samples, no action needed on pause
+        }
+        
+        function resumePositionTracking() {
+            // Position is tracked from samples, no action needed on resume
+        }
+        
+        function changeVolume() {
+            const slider = document.getElementById('volumeSlider');
+            const volume = parseFloat(slider.value) / 100;
+            
+            document.getElementById('volumeValue').textContent = volume.toFixed(2);
+            
+            if (gainNode && audioContext) {
+                // Linear ramp for volume slider (direct user control)
+                gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.05);
+            }
+        }
+        
+        // Enable fetch button when data parameters change
+        function enableFetchButton() {
+            const fetchBtn = document.getElementById('startBtn');
+            fetchBtn.disabled = false;
+            fetchBtn.classList.remove('streaming');
+            console.log('✅ Fetch button re-enabled due to parameter change');
+        }
+        
+        function loadStations() {
+            const volcano = document.getElementById('volcano').value;
+            const stationSelect = document.getElementById('station');
+            
+            if (!EMBEDDED_STATIONS[volcano]) {
+                stationSelect.innerHTML = '<option value="">Volcano not found</option>';
+                return;
+            }
+            
+            const volcanoData = EMBEDDED_STATIONS[volcano];
+            availableStations = {
+                seismic: volcanoData.seismic.map(s => ({
+                    network: s.network,
+                    station: s.station,
+                    location: s.location,
+                    channel: s.channel,
+                    label: `${s.network}.${s.station}.${s.location || '--'}.${s.channel} (${s.distance_km}km, ${s.sample_rate}Hz)`
+                })),
+                infrasound: (volcanoData.infrasound || []).map(s => ({
+                    network: s.network,
+                    station: s.station,
+                    location: s.location,
+                    channel: s.channel,
+                    label: `${s.network}.${s.station}.${s.location || '--'}.${s.channel} (${s.distance_km}km, ${s.sample_rate}Hz)`
+                }))
+            };
+            
+            updateStationList();
+        }
+        
+        function updateStationList() {
+            const dataType = document.getElementById('dataType').value;
+            const stationSelect = document.getElementById('station');
+            const stations = availableStations[dataType] || [];
+            
+            console.log(`🔍 updateStationList: dataType="${dataType}", availableStations=`, availableStations);
+            console.log(`🔍 Stations for ${dataType}:`, stations);
+            
+            if (stations.length === 0) {
+                console.warn(`⚠️ No ${dataType} stations available`);
+                stationSelect.innerHTML = '<option value="">No stations available</option>';
+                return;
+            }
+            
+            stationSelect.innerHTML = stations.map(s => 
+                `<option value='${JSON.stringify(s)}'>${s.label}</option>`
+            ).join('');
+            
+            console.log(`✅ Populated ${stations.length} ${dataType} stations`);
+        }
+        
+        function startVisualization() {
+            // Only start visualization once to prevent multiple animation loops
+            if (visualizationStarted) {
+                return;
+            }
+            visualizationStarted = true;
+            drawWaveform();
+            drawSpectrogram();
+        }
+        
+        function drawWaveform() {
+            if (!analyserNode) return;
+            
+            // Pause visualization when audio is paused or not playing
+            if (isPaused || !isPlaying) {
+                requestAnimationFrame(drawWaveform);
+                return;
+            }
+            
+            const canvas = document.getElementById('waveform');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            const bufferLength = analyserNode.fftSize;
+            const dataArray = new Float32Array(bufferLength);
+            analyserNode.getFloatTimeDomainData(dataArray);
+            
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ff3333';
+            ctx.beginPath();
+            
+            const sliceWidth = width / bufferLength;
+            let x = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i];
+                const y = (v * 0.5 + 0.5) * height;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                
+                x += sliceWidth;
+            }
+            
+            ctx.stroke();
+            requestAnimationFrame(drawWaveform);
+        }
+        
+        function drawSpectrogram() {
+            if (!analyserNode) return;
+            
+            // Pause visualization when audio is paused or not playing
+            if (isPaused || !isPlaying) {
+                requestAnimationFrame(drawSpectrogram);
+                return;
+            }
+            
+            const canvas = document.getElementById('spectrogram');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            
+            // Clear entire canvas only on first initialization
+            if (!spectrogramInitialized) {
+                ctx.clearRect(0, 0, width, height);
+                spectrogramInitialized = true;
+            }
+            
+            const bufferLength = analyserNode.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyserNode.getByteFrequencyData(dataArray);
+            
+            // Control scroll speed:
+            // Display scale: what shows as 0.5x should scroll at what was previously 1.0x speed
+            // So we multiply by 4 to get actual scroll speed (twice as fast overall)
+            const actualScrollSpeed = spectrogramScrollSpeed * 4.0;
+            
+            if (actualScrollSpeed <= 0) {
+                // Speed is 0, don't scroll
+                return;
+            }
+            
+            if (actualScrollSpeed < 1.0) {
+                // Slow speed: skip frames
+                spectrogramFrameCounter++;
+                const skipFrames = Math.max(1, Math.round(1.0 / actualScrollSpeed));
+                const shouldScroll = (spectrogramFrameCounter % skipFrames === 0);
+                
+                if (shouldScroll) {
+                    ctx.drawImage(canvas, -1, 0);
+                    ctx.clearRect(width - 1, 0, 1, height);
+                    
+                    // Draw new column
+                    for (let i = 0; i < bufferLength; i++) {
+                        const value = dataArray[i];
+                        const percent = value / 255;
+                        const hue = percent * 60;
+                        const saturation = 100;
+                        const lightness = 10 + (percent * 60);
+                        const y = height - (i / bufferLength) * height;
+                        ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                        ctx.fillRect(width - 1, y, 1, height / bufferLength);
+                    }
+                }
+            } else {
+                // Fast speed: scroll multiple pixels per frame
+                const scrollPixels = Math.round(actualScrollSpeed);
+                for (let p = 0; p < scrollPixels; p++) {
+                    ctx.drawImage(canvas, -1, 0);
+                }
+                
+                // Clear the rightmost columns
+                ctx.clearRect(width - scrollPixels, 0, scrollPixels, height);
+                
+                // Draw new columns on the right
+                for (let p = 0; p < scrollPixels; p++) {
+                    for (let i = 0; i < bufferLength; i++) {
+                        const value = dataArray[i];
+                        const percent = value / 255;
+                        const hue = percent * 60;
+                        const saturation = 100;
+                        const lightness = 10 + (percent * 60);
+                        const y = height - (i / bufferLength) * height;
+                        ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                        ctx.fillRect(width - scrollPixels + p, y, 1, height / bufferLength);
+                    }
+                }
+            }
+            
+            requestAnimationFrame(drawSpectrogram);
+        }
+        
+        function changeSpectrogramScrollSpeed() {
+            const slider = document.getElementById('spectrogramScrollSpeed');
+            const value = parseFloat(slider.value);
+            
+            // Logarithmic mapping: 0.125-1x uses more slider range for finer control
+            // 0-66.67% of slider maps to 0.125-1.0x (logarithmic)
+            // 66.67-100% of slider maps to 1.0-5.0x (logarithmic)
+            let rawSpeed;
+            if (value <= 66.67) {
+                // 0 to 66.67 maps to 0.125 to 1.0x (logarithmic)
+                const normalized = value / 66.67; // 0 to 1
+                // Map 0 to 0.125, 1 to 1.0 on log scale
+                // log10(0.125) ≈ -0.903, log10(1.0) = 0
+                rawSpeed = Math.pow(10, normalized * 0.903 - 0.903); // 0.125 to 1.0 (log scale)
+            } else {
+                // 66.67 to 100 maps to 1.0 to 5.0x (logarithmic)
+                const normalized = (value - 66.67) / 33.33; // 0 to 1
+                rawSpeed = Math.pow(10, normalized * Math.log10(5)); // 1.0 to 5.0 (log scale)
+            }
+            
+            // Snap to discrete achievable speeds (minimum is 0.125, never 0)
+            const discreteSpeeds = [0.125, 0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0];
+            let displaySpeed = discreteSpeeds[0];
+            for (let i = 0; i < discreteSpeeds.length - 1; i++) {
+                const midpoint = (discreteSpeeds[i] + discreteSpeeds[i + 1]) / 2;
+                if (rawSpeed >= midpoint) {
+                    displaySpeed = discreteSpeeds[i + 1];
+                } else {
+                    displaySpeed = discreteSpeeds[i];
+                    break;
+                }
+            }
+            
+            // Store the display speed (will be multiplied by 4 for actual speed)
+            spectrogramScrollSpeed = displaySpeed;
+            
+            // Update display - remove unnecessary zeros
+            let displayText;
+            if (displaySpeed < 1.0) {
+                // Remove leading zero and trailing zeros for fractional speeds
+                let speedStr = displaySpeed.toString();
+                if (speedStr.startsWith('0.')) {
+                    speedStr = speedStr.substring(1); // Remove "0"
+                }
+                // Remove trailing zeros
+                speedStr = speedStr.replace(/\.?0+$/, '');
+                displayText = speedStr + 'x';
+            } else {
+                displayText = displaySpeed.toFixed(0) + 'x';
+            }
+            document.getElementById('spectrogramScrollSpeedValue').textContent = displayText;
+        }
+        
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Set initial slider position for 1.0x speed
+            const sliderValueFor1x = calculateSliderForSpeed(1.0);
+            document.getElementById('playbackSpeed').value = sliderValueFor1x;
+            console.log(`Initialized playback speed slider at position ${sliderValueFor1x} for 1.0x speed`);
+            
+            // Load stations
+            loadStations();
+            
+            // Add event listeners to data selection controls to re-enable fetch button
+            document.getElementById('volcano').addEventListener('change', enableFetchButton);
+            document.getElementById('dataType').addEventListener('change', enableFetchButton);
+            document.getElementById('station').addEventListener('change', enableFetchButton);
+            document.getElementById('duration').addEventListener('change', enableFetchButton);
+            document.getElementById('highpassFreq').addEventListener('change', enableFetchButton);
+            document.getElementById('enableNormalize').addEventListener('change', enableFetchButton);
+            document.getElementById('useLocalServer').addEventListener('change', enableFetchButton);
+            
+            // Base sample rate changes playback speed immediately (does NOT trigger new fetch)
+            document.getElementById('baseSampleRate').addEventListener('change', changeBaseSampleRate);
+            
+            // Initialize high-pass filter display based on default base sampling rate
+            updateHighPassFilterDisplay();
+            
+            // Initialize playback speed with multiplier
+            updatePlaybackSpeed();
+            
+            // Add click handlers to reset speed and volume to 1.0 (on entire label)
+            document.getElementById('speedLabel').addEventListener('click', resetSpeedTo1);
+            document.getElementById('volumeLabel').addEventListener('click', resetVolumeTo1);
+            
+            // Initialize spectrogram scroll speed slider
+            document.getElementById('spectrogramScrollSpeed').addEventListener('input', changeSpectrogramScrollSpeed);
+            changeSpectrogramScrollSpeed(); // Set initial display value
+            
+            // Spacebar to toggle play/pause
+            document.addEventListener('keydown', (event) => {
+                // Handle spacebar - allow for range inputs (sliders), but not text inputs
+                if (event.code === 'Space') {
+                    const isTextInput = event.target.tagName === 'INPUT' && 
+                                       event.target.type !== 'range';
+                    const isTextarea = event.target.tagName === 'TEXTAREA';
+                    const isSelect = event.target.tagName === 'SELECT';
+                    
+                    // If it's a text input, textarea, or select, don't handle it
+                    if (isTextInput || isTextarea || isSelect) {
+                        return;
+                    }
+                    
+                    // For range inputs (sliders) or other elements, allow spacebar to control playback
+                    event.preventDefault(); // Prevent page scroll
+                    
+                    // Only toggle if we have audio data and play/pause button is enabled
+                    const playPauseBtn = document.getElementById('playPauseBtn');
+                    if (!playPauseBtn.disabled && (isPlaying || allReceivedData.length > 0)) {
+                        togglePlayPause();
+                    }
+                }
+            });
+            
+            // Blur sliders after interaction so spacebar works immediately
+            const playbackSpeedSlider = document.getElementById('playbackSpeed');
+            const volumeSlider = document.getElementById('volumeSlider');
+            
+            [playbackSpeedSlider, volumeSlider].forEach(slider => {
+                slider.addEventListener('mouseup', () => {
+                    slider.blur(); // Remove focus so spacebar works
+                });
+                slider.addEventListener('change', () => {
+                    slider.blur(); // Remove focus so spacebar works
+                });
+            });
+            
+            // Blur dropdowns after interaction so spacebar works immediately
+            const dropdowns = ['volcano', 'dataType', 'station', 'duration'];
+            dropdowns.forEach(id => {
+                const dropdown = document.getElementById(id);
+                if (dropdown) {
+                    dropdown.addEventListener('change', () => {
+                        dropdown.blur(); // Remove focus so spacebar works
+                    });
+                    dropdown.addEventListener('blur', () => {
+                        // Already blurred, but ensure it stays blurred
+                    });
+                }
+            });
+            
+            // Blur checkboxes after interaction so spacebar works immediately
+            const checkboxes = ['enableNormalize', 'useLocalServer'];
+            checkboxes.forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.addEventListener('change', () => {
+                        checkbox.blur(); // Remove focus so spacebar works
+                    });
+                    checkbox.addEventListener('click', () => {
+                        // Blur after a short delay to allow change event to fire first
+                        setTimeout(() => checkbox.blur(), 10);
+                    });
+                }
+            });
+            
+            console.log('✅ Event listeners added for fetch button re-enabling');
+        });
+    </script>
+</body>
+</html>
+
