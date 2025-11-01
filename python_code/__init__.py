@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.02"
+__version__ = "1.03"
 __commit_message__ = (
-    "v1.02 Feature: Created SeedLink chunk forwarder with live waveform viewer - fixed-size scrolling buffer visualization, adaptive normalization, playback rate control (1-200Hz), live output meter"
+    "v1.03 Enhancement: Added adaptive speed control to chunk viewer - configurable buffer thresholds, linear ramping transitions, 60fps display, fixed meter width"
 )
 
 # Import key modules to make them available when importing the package

@@ -84,6 +84,8 @@
         
         #current-output-meter {
             width: 60px;
+            min-width: 60px;
+            flex-shrink: 0;
             height: 400px;
             background: rgba(0, 0, 0, 0.5);
             border-radius: 8px;
@@ -243,7 +245,6 @@
         
         <!-- Stats Card -->
         <div class="card">
-            <h2>Statistics</h2>
             <div class="stats-grid">
                 <div class="stat-box">
                     <div class="stat-label">Chunks Received</div>
@@ -269,6 +270,113 @@
                 <div class="stat-box">
                     <div class="stat-label">Time Since Chunk</div>
                     <div class="stat-value" id="time-since-chunk">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Adaptive Speed Control Card -->
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+                <button id="adaptive-toggle-btn" onclick="toggleAdaptive()" style="min-width: 150px;">
+                    🎚️ Enable Adaptive
+                </button>
+                <div style="color: #a0c4ff;">
+                    Current Mode: <span id="adaptive-status" style="color: #ff4444; font-weight: bold;">OFF</span>
+                </div>
+                <div style="color: #a0c4ff;">
+                    Target Rate: <span id="target-rate-display" style="color: #00ff88; font-weight: bold;">100 Hz</span>
+                </div>
+                <div style="color: #a0c4ff; margin-left: auto;">
+                    <label style="color: #a0c4ff; font-size: 1em; margin-right: 10px;">Smooth Transition Time:</label>
+                    <input type="number" id="smooth-time" value="3" step="0.5" min="0.1"
+                           style="width: 80px; padding: 6px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px; font-size: 0.95em;">
+                    <span style="color: #a0c4ff; font-size: 1em; margin-left: 5px;">seconds</span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <!-- Left Ranges (Low Buffer - Slow Down) -->
+                <div style="background: rgba(100, 100, 255, 0.2); padding: 15px; border-radius: 10px; border: 2px solid rgba(100, 100, 255, 0.4);">
+                    <h3 style="color: #6666ff; font-size: 1.1em; margin-bottom: 10px;">🐌 Low Buffer (Slow Down)</h3>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≤ Samples:</label>
+                        <input type="number" id="left-threshold-1" value="500" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="left-rate-1" value="40" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≤ Samples:</label>
+                        <input type="number" id="left-threshold-2" value="1000" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="left-rate-2" value="60" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≤ Samples:</label>
+                        <input type="number" id="left-threshold-3" value="1500" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="left-rate-3" value="80" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                </div>
+                
+                <!-- Normal Range -->
+                <div style="background: rgba(100, 255, 100, 0.2); padding: 15px; border-radius: 10px; border: 2px solid rgba(100, 255, 100, 0.4);">
+                    <h3 style="color: #66ff66; font-size: 1.1em; margin-bottom: 10px;">✓ Normal Range</h3>
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">Normal Rate:</label>
+                        <input type="number" id="normal-rate" value="100" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                    <div style="color: #a0c4ff; font-size: 0.85em; margin-top: 10px;">
+                        Between 1500 and 4000 samples
+                    </div>
+                </div>
+                
+                <!-- Right Ranges (High Buffer - Speed Up) -->
+                <div style="background: rgba(255, 100, 100, 0.2); padding: 15px; border-radius: 10px; border: 2px solid rgba(255, 100, 100, 0.4);">
+                    <h3 style="color: #ff6666; font-size: 1.1em; margin-bottom: 10px;">⚡ High Buffer (Speed Up)</h3>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≥ Samples:</label>
+                        <input type="number" id="right-threshold-1" value="4000" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="right-rate-1" value="120" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≥ Samples:</label>
+                        <input type="number" id="right-threshold-2" value="6000" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="right-rate-2" value="150" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">≥ Samples:</label>
+                        <input type="number" id="right-threshold-3" value="8000" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <label style="color: #a0c4ff; font-size: 0.9em;">→ Rate:</label>
+                        <input type="number" id="right-rate-3" value="200" 
+                               style="width: 80px; padding: 5px; margin: 0 5px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 5px;">
+                        <span style="color: #a0c4ff; font-size: 0.9em;">Hz</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -322,11 +430,17 @@
         let chunkBoundaries = [];  // Track positions where chunks end (for visual markers)
         let lastChunkTime = null;  // Timestamp of last chunk arrival
         
-        // Adaptive scaling (smooth exponential average over ~3 seconds)
+        // Adaptive speed control
+        let adaptiveEnabled = false;
+        let targetPlaybackRate = 100;  // The rate we're trying to reach
+        let adaptiveInterval = null;  // Separate interval for adaptive rate updates
+        let currentRampInterval = null;  // Track active ramp to avoid overlapping ramps
+        
+        // Adaptive scaling (smooth exponential average over ~5 seconds)
         let displayMin = 0;  // Current display minimum (smoothed)
         let displayMax = 1;  // Current display maximum (smoothed)
         let scaleInitialized = false;  // Track if we've done initial scaling
-        const SCALE_ALPHA = 0.01;  // Smoothing factor (lower = slower adaptation, ~3s time constant at 20fps)
+        const SCALE_ALPHA = 0.0033;  // Smoothing factor (lower = slower adaptation, ~5s time constant at 60fps)
         
         // Canvas
         const canvas = document.getElementById('waveform');
@@ -345,6 +459,167 @@
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+        
+        // Toggle adaptive speed control
+        function toggleAdaptive() {
+            adaptiveEnabled = !adaptiveEnabled;
+            const btn = document.getElementById('adaptive-toggle-btn');
+            const status = document.getElementById('adaptive-status');
+            
+            if (adaptiveEnabled) {
+                btn.textContent = '🎚️ Disable Adaptive';
+                btn.classList.add('active');
+                status.textContent = 'ON';
+                status.style.color = '#00ff88';
+                console.log('🎚️ Adaptive speed control ENABLED');
+                
+                // Immediately calculate and set initial target rate
+                targetPlaybackRate = calculateTargetRate();
+                document.getElementById('target-rate-display').textContent = targetPlaybackRate + ' Hz';
+                
+                // Start adaptive rate adjustment
+                if (adaptiveInterval) {
+                    clearInterval(adaptiveInterval);
+                }
+                adaptiveInterval = setInterval(updateAdaptiveRate, 100);  // Check every 100ms
+                // Also call it once immediately
+                updateAdaptiveRate();
+            } else {
+                btn.textContent = '🎚️ Enable Adaptive';
+                btn.classList.remove('active');
+                status.textContent = 'OFF';
+                status.style.color = '#ff4444';
+                console.log('🎚️ Adaptive speed control DISABLED');
+                
+                // Stop adaptive rate adjustment
+                if (adaptiveInterval) {
+                    clearInterval(adaptiveInterval);
+                    adaptiveInterval = null;
+                }
+                
+                // Stop any active ramp
+                if (currentRampInterval) {
+                    clearInterval(currentRampInterval);
+                    currentRampInterval = null;
+                }
+                
+                // Return to normal rate
+                const normalRate = parseInt(document.getElementById('normal-rate').value);
+                targetPlaybackRate = normalRate;
+                applyPlaybackRate(normalRate);
+            }
+        }
+        
+        // Calculate target playback rate based on buffer size
+        function calculateTargetRate() {
+            const bufferSize = dataBuffer.length;
+            
+            // Get threshold values from inputs
+            const leftThresh1 = parseInt(document.getElementById('left-threshold-1').value);
+            const leftThresh2 = parseInt(document.getElementById('left-threshold-2').value);
+            const leftThresh3 = parseInt(document.getElementById('left-threshold-3').value);
+            const rightThresh1 = parseInt(document.getElementById('right-threshold-1').value);
+            const rightThresh2 = parseInt(document.getElementById('right-threshold-2').value);
+            const rightThresh3 = parseInt(document.getElementById('right-threshold-3').value);
+            
+            // Get rate values from inputs
+            const leftRate1 = parseInt(document.getElementById('left-rate-1').value);
+            const leftRate2 = parseInt(document.getElementById('left-rate-2').value);
+            const leftRate3 = parseInt(document.getElementById('left-rate-3').value);
+            const rightRate1 = parseInt(document.getElementById('right-rate-1').value);
+            const rightRate2 = parseInt(document.getElementById('right-rate-2').value);
+            const rightRate3 = parseInt(document.getElementById('right-rate-3').value);
+            const normalRate = parseInt(document.getElementById('normal-rate').value);
+            
+            // Determine target rate based on buffer size (check in order of priority)
+            // Left ranges (low buffer - speed up)
+            if (bufferSize <= leftThresh1) {
+                return leftRate1;
+            } else if (bufferSize <= leftThresh2) {
+                return leftRate2;
+            } else if (bufferSize <= leftThresh3) {
+                return leftRate3;
+            }
+            // Right ranges (high buffer - slow down)
+            else if (bufferSize >= rightThresh3) {
+                return rightRate3;
+            } else if (bufferSize >= rightThresh2) {
+                return rightRate2;
+            } else if (bufferSize >= rightThresh1) {
+                return rightRate1;
+            }
+            // Normal range
+            else {
+                return normalRate;
+            }
+        }
+        
+        // Linear ramp from start rate to end rate over duration
+        function rampPlaybackRate(start, end, duration) {
+            // Clear any existing ramp
+            if (currentRampInterval) {
+                clearInterval(currentRampInterval);
+                currentRampInterval = null;
+            }
+            
+            // If already at target, do nothing
+            if (start === end) {
+                applyPlaybackRate(end);
+                return;
+            }
+            
+            const steps = Math.max(1, Math.round(duration * 10)); // 10 steps/sec
+            const delta = (end - start) / steps;
+            let i = 0;
+            
+            currentRampInterval = setInterval(() => {
+                i++;
+                const newRate = Math.round(start + delta * i);
+                const clampedRate = Math.max(1, Math.min(200, newRate));
+                applyPlaybackRate(clampedRate);
+                
+                if (i >= steps) {
+                    clearInterval(currentRampInterval);
+                    currentRampInterval = null;
+                    // Ensure we hit the exact target at the end
+                    applyPlaybackRate(end);
+                }
+            }, 100);
+        }
+        
+        // Update adaptive rate with smooth transitions (linear ramp)
+        function updateAdaptiveRate() {
+            if (!adaptiveEnabled) return;
+            
+            // Calculate what rate we should be at
+            const newTargetRate = calculateTargetRate();
+            
+            // If target changed, update it and start a new ramp
+            if (newTargetRate !== targetPlaybackRate) {
+                console.log(`🎯 Target rate changed: ${targetPlaybackRate} → ${newTargetRate} Hz (buffer: ${dataBuffer.length} samples)`);
+                targetPlaybackRate = newTargetRate;
+                document.getElementById('target-rate-display').textContent = targetPlaybackRate + ' Hz';
+                
+                // Start ramping from current playback rate to new target
+                const smoothTime = parseFloat(document.getElementById('smooth-time').value);
+                rampPlaybackRate(playbackRate, targetPlaybackRate, smoothTime);
+            }
+        }
+        
+        // Apply a new playback rate (internal function)
+        function applyPlaybackRate(newRate) {
+            if (newRate === playbackRate) return;
+            
+            playbackRate = newRate;
+            document.getElementById('playback-rate-slider').value = playbackRate;
+            document.getElementById('playback-rate-display').textContent = playbackRate + ' Hz';
+            
+            // Restart scan interval with new rate
+            if (scanInterval) {
+                clearInterval(scanInterval);
+            }
+            scanInterval = setInterval(advanceScan, 1000 / playbackRate);
+        }
         
         // Fetch chunks from backend
         async function fetchChunk() {
@@ -437,6 +712,9 @@
         
         // Draw waveform on canvas
         function drawWaveform() {
+            // Update stats and meter at fixed 60fps rate for smooth display
+            updateStats();
+            
             const width = canvas.width;
             const height = canvas.height;
             const centerY = height / 2;
@@ -519,7 +797,7 @@
                 }
                 
                 // Smooth adaptation using exponential moving average (5-second time constant)
-                // alpha = 0.01 at 20fps → tau ≈ 1/(0.01*20) = 5 seconds
+                // alpha = 0.0033 at 60fps → tau ≈ 1/(0.0033*60) = 5 seconds
                 displayMin = SCALE_ALPHA * currentMin + (1 - SCALE_ALPHA) * displayMin;
                 displayMax = SCALE_ALPHA * currentMax + (1 - SCALE_ALPHA) * displayMax;
                 
@@ -601,15 +879,8 @@
             }
         }
         
-        // Advance playback by consuming data at 100 Hz
-        let scanDebugCounter = 0;
+        // Advance playback by consuming data at playback rate
         function advanceScan() {
-            // Debug logging every 100 calls (once per second at 100 Hz)
-            scanDebugCounter++;
-            if (scanDebugCounter % 100 === 0) {
-                console.log(`[SCAN] Called ${scanDebugCounter} times | isPaused: ${isPaused} | Buffer: ${dataBuffer.length} | Played: ${totalSamplesPlayed}`);
-            }
-            
             if (!isPaused && dataBuffer.length > 0) {
                 // "Play" the sample at index 0 by removing it
                 dataBuffer.shift();  // Remove first element
@@ -618,8 +889,7 @@
                 // Shift all chunk boundaries left by 1 (data is moving left)
                 chunkBoundaries = chunkBoundaries.map(b => b - 1).filter(b => b > 0);
                 
-                updateStats();
-                updateScanLine();
+                // Note: updateScanLine() is called by drawWaveform() at fixed 60fps for smooth display
             }
         }
         
@@ -693,31 +963,41 @@
             drawWaveform();
         }
         
-        // Update playback rate
+        // Update playback rate (manual slider control)
         function updatePlaybackRate(newRate) {
-            playbackRate = parseInt(newRate);
-            document.getElementById('playback-rate-display').textContent = playbackRate + ' Hz';
+            const rate = parseInt(newRate);
             
-            // Restart scan interval with new rate
-            if (scanInterval) {
-                clearInterval(scanInterval);
+            // Stop any active ramp
+            if (currentRampInterval) {
+                clearInterval(currentRampInterval);
+                currentRampInterval = null;
             }
-            scanInterval = setInterval(advanceScan, 1000 / playbackRate);
             
-            console.log(`🎚️ Playback rate changed to ${playbackRate} Hz (interval: ${1000/playbackRate}ms)`);
+            // If adaptive is enabled, this is a manual override - disable adaptive
+            if (adaptiveEnabled) {
+                console.log(`🎚️ Manual rate change detected - disabling adaptive mode`);
+                toggleAdaptive();  // Turn off adaptive
+            }
+            
+            targetPlaybackRate = rate;
+            applyPlaybackRate(rate);
+            console.log(`🎚️ Playback rate manually set to ${rate} Hz`);
         }
         
         // Main update loops
-        console.log(`🚀 Starting intervals - fetchChunk: 100ms, advanceScan: ${1000/playbackRate}ms, drawWaveform: 50ms`);
+        console.log(`🚀 Starting intervals - fetchChunk: 100ms, advanceScan: ${1000/playbackRate}ms, drawWaveform: 17ms (~60fps)`);
         console.log(`🔄 Initial state - isPaused: ${isPaused}, buffer: ${dataBuffer.length}`);
         
         setInterval(fetchChunk, 100);  // Fetch chunks every 100ms
         scanInterval = setInterval(advanceScan, 1000 / playbackRate);  // Scan at playback rate
-        setInterval(drawWaveform, 50);  // Redraw at 20 fps
+        setInterval(drawWaveform, 17);  // Redraw at ~60 fps
         
         // Initial draw
         updateStats();
         drawWaveform();
+        
+        // Enable adaptive mode by default
+        toggleAdaptive();
         
         console.log(`✅ Intervals started - scanning should begin automatically when data arrives`);
     </script>

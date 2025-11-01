@@ -191,3 +191,79 @@ Poll API (100ms) → Add to buffer → Trim if >50k → Consume at playback rate
 
 ---
 
+## Adaptive Speed Control for Chunk Viewer
+
+### Changes Made:
+
+1. **Adaptive Speed Control System**
+   - Toggle button to enable/disable adaptive mode (defaults ON)
+   - Three configurable zones: Low Buffer (slow down), Normal Range, High Buffer (speed up)
+   - Low buffer thresholds: ≤500, ≤1000, ≤1500 samples → rates: 40, 60, 80 Hz
+   - High buffer thresholds: ≥4000, ≥6000, ≥8000 samples → rates: 120, 150, 200 Hz
+   - Normal range (1500-4000 samples) → 100 Hz
+   - All thresholds and rates editable in real-time
+
+2. **Linear Ramping Transitions**
+   - Fixed issue with exponential smoothing causing rate drift
+   - Implemented proper linear ramp function over configurable smooth time (default 3s)
+   - Ramps at 10 steps/second for smooth transitions
+   - Guarantees exact target rate at end of ramp
+   - Cancels previous ramp when new target detected (no overlapping ramps)
+
+3. **Display Rate Optimization**
+   - Increased drawing rate from 20fps (50ms) to 60fps (17ms) for buttery smooth display
+   - Adjusted adaptive scaling alpha from 0.01 to 0.0033 to maintain 5s time constant at 60fps
+   - Separated meter/stats updates (60fps) from data consumption (variable adaptive rate)
+   - Fixed meter jitter by decoupling meter updates from playback rate
+
+4. **UI Improvements**
+   - Fixed current output meter width (60px) to prevent shrinking on small screens
+   - Removed header text from Statistics and Adaptive Speed Control sections for cleaner look
+   - Moved smooth transition time control to same row as enable button
+   - Color-coded zones: Blue (slow down), Green (normal), Red (speed up)
+
+5. **Code Cleanup**
+   - Removed debug console logs for scan calls
+   - Separated visualization logic from core data processing for future modularity
+   - All meter and stats updates now run at fixed 60fps regardless of playback speed
+
+### Major Bug Fixed: Rate Drift and Jitter
+
+**Problem**: Playback rate would drift to values like 106Hz instead of 100Hz, and meter updates were jerky
+**Root Causes**: 
+1. Exponential smoothing recalculated every 100ms, causing cumulative rounding errors
+2. Meter updates tied to variable playback rate interval
+**Solutions**:
+1. Linear ramp function that draws straight line from start to end rate
+2. Fixed 60fps update loop for all visualization (meter, stats, waveform)
+3. Data consumption separated to run at variable adaptive playback rate
+
+**Result**: Exact target rates reached, smooth 60fps display regardless of playback speed changes
+
+### Key Learnings:
+
+1. **Linear vs Exponential Ramping**: True linear ramp (constant velocity) better than exponential smoothing (slowing approach) for rate changes
+2. **Decoupling Update Rates**: Visual updates should run at fixed frame rate, independent of data processing rate
+3. **Ramp Interruption**: Must cancel active ramps when new target detected to avoid jitter
+4. **Time Constants at Different Frame Rates**: Alpha values must scale with frame rate to maintain same smoothing behavior
+
+### Technical Architecture:
+
+**Adaptive Rate Logic**:
+```
+Check buffer size → Calculate target rate → Start linear ramp if changed
+Ramp: newRate = startRate + (delta * step/totalSteps) for each 100ms
+```
+
+**Update Loops**:
+- **60fps (17ms)**: drawWaveform() → updateStats() → updateScanLine() → draw canvas
+- **100ms**: fetchChunk() (get new data from backend)
+- **100ms**: updateAdaptiveRate() (check if target rate changed)
+- **Variable**: advanceScan() (consume data at adaptive playback rate)
+
+### Version
+**v1.03**  
+**Commit Message**: "v1.03 Enhancement: Added adaptive speed control to chunk viewer - configurable buffer thresholds, linear ramping transitions, 60fps display, fixed meter width"
+
+---
+
