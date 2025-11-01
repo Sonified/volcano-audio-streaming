@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.00"
+__version__ = "1.01"
 __commit_message__ = (
-    "v1.00 Initial: Duplicated project for new GitHub repository - optimized event page"
+    "v1.01 Feature: Added real-time smoothing filter to SeedLink dashboard - 4-box layout with raw/smoothed live amplitude and waveform displays, adjustable smoothing (20-500ms)"
 )
 
 # Import key modules to make them available when importing the package

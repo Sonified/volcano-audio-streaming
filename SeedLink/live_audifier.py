@@ -56,7 +56,17 @@ class LiveAudifier(EasySeedLinkClient):
         
         # Playback position in seismic buffer
         self.playback_position = 0.0  # Float for smooth interpolation
-        self.current_amplitude = 0.0  # Current amplitude being played
+        self.current_amplitude = 0.0  # Current amplitude being played (raw)
+        self.current_amplitude_smoothed = 0.0  # Current smoothed amplitude
+        
+        # Low-pass smoothing filter (exponential moving average at audio rate)
+        self.smoothing_time = 0.05  # Default 50ms smoothing
+        self.smoothed_value = 0.0  # Current smoothed output value
+        self.smoothing_alpha = self._calculate_smoothing_alpha()
+        
+        # Store both raw and smoothed samples for visualization
+        self.recent_data_raw_interpolated = deque(maxlen=1000)  # Raw interpolated at audio rate
+        self.recent_data_smoothed = deque(maxlen=1000)  # Smoothed at audio rate
         
         # Pause state
         self.paused = False
@@ -76,8 +86,15 @@ class LiveAudifier(EasySeedLinkClient):
         print(f"📦 Buffer: Simple growing list, auto-trimmed behind playback")
         print(f"🎵 Frequency range: 0.1 Hz - 50 Hz (infrasound/low freq)")
         print(f"🎚️  Playback rate: {self.seismic_sample_rate / self.audio_sample_rate:.6f} seismic/audio sample")
+        print(f"🎛️  Smoothing filter: {self.smoothing_time*1000:.0f}ms time constant (exponential low-pass)")
         print("⏳ Waiting for seismic data from IRIS SeedLink...")
         print("=" * 80)
+    
+    def _calculate_smoothing_alpha(self):
+        """Calculate smoothing alpha from time constant"""
+        # alpha = dt / tau, where dt = 1/44100, tau = smoothing_time
+        dt = 1.0 / self.audio_sample_rate
+        return dt / self.smoothing_time
     
     def on_data(self, trace):
         """Called when new seismic data arrives (every ~5 seconds)"""
@@ -142,6 +159,7 @@ class LiveAudifier(EasySeedLinkClient):
         if decimation_factor > 0:
             downsampled = filtered[::decimation_factor]
             self.recent_data.extend(downsampled.tolist())
+            # Smoothed version will be stored from audio callback
         
         # Detailed logging
         time_str = f"Δt={time_since_last:.2f}s" if time_since_last else "Δt=N/A"
@@ -174,6 +192,8 @@ class LiveAudifier(EasySeedLinkClient):
         
         # Generate audio samples by interpolating through seismic buffer
         audio_out = []
+        raw_samples = []  # Store raw interpolated samples for visualization
+        
         for i in range(frames):
             # Check if we have enough buffer ahead
             if self.playback_position >= buffer_len - 1:
@@ -181,7 +201,7 @@ class LiveAudifier(EasySeedLinkClient):
                 self.stats['underruns'] += 1
                 if self.stats['underruns'] % 50 == 0:
                     print(f"[AUDIO UNDERRUN #{self.stats['underruns']}] Playback pos: {self.playback_position:.2f}, Buffer size: {buffer_len}")
-                audio_out.append(0.0)
+                raw_sample = 0.0
             else:
                 # Linear interpolation between current and next sample
                 idx = int(self.playback_position)
@@ -191,18 +211,43 @@ class LiveAudifier(EasySeedLinkClient):
                 next_sample = self.seismic_buffer[min(idx + 1, buffer_len - 1)]
                 
                 interpolated = current_sample * (1 - frac) + next_sample * frac
-                audio_out.append(interpolated)
-                
-                # Store current amplitude for live monitoring
-                self.current_amplitude = interpolated
+                raw_sample = interpolated
                 
                 # Advance playback position
                 self.playback_position += playback_rate
+            
+            # Apply low-pass smoothing filter (exponential moving average)
+            # y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+            self.smoothed_value = self.smoothing_alpha * raw_sample + (1 - self.smoothing_alpha) * self.smoothed_value
+            
+            # Store raw sample for visualization
+            raw_samples.append(raw_sample)
+            
+            # Output smoothed version to audio
+            audio_out.append(self.smoothed_value)
+            
+            # Store current amplitude for live monitoring (use smoothed for consistency)
+            self.current_amplitude = raw_sample  # Raw for comparison
+            self.current_amplitude_smoothed = self.smoothed_value  # Smoothed for audio output
+        
+        # Store recent data for visualization (downsample to ~10 Hz)
+        # Decimate to match visualization rate
+        decimation_factor = int(self.audio_sample_rate / 10)  # ~4410 samples -> 1 sample at 10 Hz
+        if decimation_factor > 0 and len(raw_samples) >= decimation_factor:
+            # Store both raw and smoothed versions
+            raw_decimated = raw_samples[::decimation_factor]
+            smoothed_decimated = audio_out[::decimation_factor]
+            
+            # Extend visualization buffers (these will be downsampled further by dashboard)
+            for raw_val, smooth_val in zip(raw_decimated, smoothed_decimated):
+                self.recent_data_raw_interpolated.append(raw_val)
+                self.recent_data_smoothed.append(smooth_val)
         
         # Track seismic samples consumed (not audio samples!)
         seismic_samples_consumed = frames * playback_rate
         self.total_samples_consumed += seismic_samples_consumed
         
+        # Output smoothed audio
         outdata[:] = np.array(audio_out).reshape(-1, 1)
     
     def run_audification(self, network, station, channel='HHZ'):
@@ -224,8 +269,25 @@ class LiveAudifier(EasySeedLinkClient):
         return stats
     
     def get_recent_data(self):
-        """Get recent waveform data for visualization"""
+        """Get recent waveform data for visualization (filtered seismic at 10Hz)"""
         return list(self.recent_data)
+    
+    def get_recent_data_raw_interpolated(self):
+        """Get recent raw interpolated waveform data for visualization (at audio rate, downsampled to 10Hz)"""
+        return list(self.recent_data_raw_interpolated)
+    
+    def get_recent_data_smoothed(self):
+        """Get recent smoothed waveform data for visualization (at audio rate, downsampled to 10Hz)"""
+        return list(self.recent_data_smoothed)
+    
+    def set_smoothing_time(self, time_seconds):
+        """Set smoothing time constant (0.02 to 0.5 seconds)"""
+        if 0.02 <= time_seconds <= 0.5:
+            self.smoothing_time = time_seconds
+            self.smoothing_alpha = self._calculate_smoothing_alpha()
+            print(f"[SMOOTHING] Updated to {self.smoothing_time*1000:.0f}ms ({self.smoothing_time}s)")
+            return True
+        return False
     
     def pause_audio(self):
         """Pause audio playback (data still accumulates in buffer)"""
@@ -254,6 +316,9 @@ class LiveAudifier(EasySeedLinkClient):
         # Clear buffers (but keep streaming active)
         self.seismic_buffer = []
         self.recent_data.clear()
+        self.recent_data_raw_interpolated.clear()
+        self.recent_data_smoothed.clear()
+        self.smoothed_value = 0.0  # Reset smoothing filter state
         self.playback_started = False
         
         print("[RESET] All statistics and buffers cleared. Restarting from fresh state...")
@@ -333,10 +398,38 @@ def get_status():
 
 @app.route('/api/waveform')
 def get_waveform():
-    """Get recent waveform data"""
+    """Get recent waveform data (filtered seismic at 10Hz)"""
     if audifier:
         return jsonify({'data': audifier.get_recent_data()})
     return jsonify({'data': []})
+
+@app.route('/api/waveform_raw_interpolated')
+def get_waveform_raw_interpolated():
+    """Get recent raw interpolated waveform data (at audio rate, downsampled to 10Hz)"""
+    if audifier:
+        return jsonify({'data': audifier.get_recent_data_raw_interpolated()})
+    return jsonify({'data': []})
+
+@app.route('/api/waveform_smoothed')
+def get_waveform_smoothed():
+    """Get recent smoothed waveform data (at audio rate, downsampled to 10Hz)"""
+    if audifier:
+        return jsonify({'data': audifier.get_recent_data_smoothed()})
+    return jsonify({'data': []})
+
+@app.route('/api/smoothing_time', methods=['POST'])
+def set_smoothing_time():
+    """Set smoothing time constant"""
+    from flask import request
+    if audifier:
+        data = request.get_json()
+        time_seconds = float(data.get('time', 0.05))
+        success = audifier.set_smoothing_time(time_seconds)
+        if success:
+            return jsonify({'success': True, 'smoothing_time': audifier.smoothing_time})
+        else:
+            return jsonify({'success': False, 'error': 'Smoothing time must be between 0.02 and 0.5 seconds'})
+    return jsonify({'success': False, 'error': 'Audifier not initialized'})
 
 @app.route('/api/packet_history')
 def get_packet_history():
@@ -356,10 +449,13 @@ def get_packet_history():
 
 @app.route('/api/live_amplitude')
 def get_live_amplitude():
-    """Get the current amplitude being played RIGHT NOW"""
+    """Get the current amplitude being played RIGHT NOW (both raw and smoothed)"""
     if audifier:
-        return jsonify({'amplitude': float(audifier.current_amplitude)})
-    return jsonify({'amplitude': 0.0})
+        return jsonify({
+            'amplitude': float(audifier.current_amplitude),
+            'amplitude_smoothed': float(audifier.current_amplitude_smoothed)
+        })
+    return jsonify({'amplitude': 0.0, 'amplitude_smoothed': 0.0})
 
 @app.route('/api/reset', methods=['POST'])
 def reset_stats():
