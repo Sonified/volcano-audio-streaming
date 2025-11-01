@@ -84,5 +84,11 @@ The original volcano audio streaming project has been duplicated to create a new
 - Both raw and smoothed samples stored in separate deques for visualization
 - Live amplitude API returns both values simultaneously for efficient dashboard updates
 
+### Version
+**v1.01** - Commit: `d55abeb`  
+**Commit Message**: "v1.01 Feature: Added real-time smoothing filter to SeedLink dashboard - 4-box layout with raw/smoothed live amplitude and waveform displays, adjustable smoothing (20-500ms)"  
+**Status**: Successfully pushed to main branch  
+**Changes**: 4 files changed, 319 insertions(+), 69 deletions(-)
+
 ---
 
