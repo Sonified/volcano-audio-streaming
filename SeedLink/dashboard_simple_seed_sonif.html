@@ -123,7 +123,7 @@
                     <div class="stat-label">
                         Playback Rate
                         <label style="display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; cursor: pointer; font-size: 0.85em;">
-                            <input type="checkbox" id="adaptive-toggle" onchange="toggleAdaptive()" 
+                            <input type="checkbox" id="adaptive-toggle" checked onchange="toggleAdaptive()" 
                                    style="width: 16px; height: 16px; cursor: pointer;">
                             <span>Adaptive</span>
                         </label>
@@ -957,9 +957,12 @@
         updateStats();
         updateSmoothTime(100);  // Initialize smooth time alpha (default 100ms)
         
+        // Enable adaptive mode by default (checkbox is pre-checked)
+        toggleAdaptive();
+        
         console.log(`✅ Intervals started - scanning should begin automatically when data arrives`);
         console.log(`📊 Data state object is now tracking calculated values independently`);
-        console.log(`🎚️ Adaptive mode: ${adaptiveEnabled ? 'ENABLED' : 'DISABLED'} (toggle checkbox to enable)`);
+        console.log(`🎚️ Adaptive mode: ${adaptiveEnabled ? 'ENABLED' : 'DISABLED'}`);
         
         // Debug: Log data state every 5 seconds to verify it's updating
         setInterval(() => {

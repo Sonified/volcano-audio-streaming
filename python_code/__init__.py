@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.05"
+__version__ = "1.06"
 __commit_message__ = (
-    "v1.05 Feature: Created dashboard_simple_seed_sonif.html - streamlined sonification interface with stats and parameter mapping only, adaptive checkbox in playback rate, removed waveform visualization and adaptive control card"
+    "v1.06 Enhancement: dashboard_simple_seed_sonif.html now loads with adaptive playback rate enabled by default"
 )
 
 # Import key modules to make them available when importing the package

@@ -470,8 +470,26 @@ This dashboard focuses on **data-driven sonification** without visual waveform d
 
 ### Version
 **v1.05**  
-**Commit**: `Pending`  
+**Commit**: `974f78f`  
 **Commit Message**: "v1.05 Feature: Created dashboard_simple_seed_sonif.html - streamlined sonification interface with stats and parameter mapping only, adaptive checkbox in playback rate, removed waveform visualization and adaptive control card"
+
+---
+
+## Simple Sonification Dashboard - Adaptive Default
+
+### Changes Made:
+
+Updated `dashboard_simple_seed_sonif.html` to load with adaptive playback rate **enabled by default**:
+
+1. **Checkbox Pre-checked**: Added `checked` attribute to adaptive toggle checkbox
+2. **Auto-enable on Load**: Added `toggleAdaptive()` call in initialization sequence
+
+**Result**: Dashboard now starts with intelligent buffer management active immediately, automatically adjusting playback rate (20-200 Hz) based on buffer levels.
+
+### Version
+**v1.06**  
+**Commit**: `Pending`  
+**Commit Message**: "v1.06 Enhancement: dashboard_simple_seed_sonif.html now loads with adaptive playback rate enabled by default"
 
 ---
 
