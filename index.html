@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌋 Feel Live Volcanic Activity</title>
+    <title>Ride the Volcano</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌋</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.min.js"></script>
     <style>
@@ -695,7 +695,7 @@
         </div>
         
         <h1 style="font-size: 3em;">🌋 Ride the Volcano</h1>
-        <h2 class="magma-text" style="text-align: center; margin-top: -15px; margin-bottom: 20px; font-size: 1.8em;">Live Seismic Data From <span id="volcanoName">Mt. Kīlauea</span></h2>
+        <h2 class="magma-text" style="text-align: center; margin-top: -15px; margin-bottom: 20px; font-size: 1.8em;">Live Seismic Data From <span id="volcanoName">Kīlauea</span></h2>
         
         <div class="panel" style="background: linear-gradient(135deg, rgba(10, 2, 2, 0.95) 0%, rgba(50, 15, 15, 0.95) 100%); border: 1px solid rgba(200, 100, 100, 0.3); position: relative;">
             <!-- Mute Indicator (Enter key) -->
@@ -2174,11 +2174,24 @@
             
             const volcanoData = EMBEDDED_STATIONS[volcano];
             
-            // Update volcano name in title
-            document.getElementById('volcanoName').textContent = 'Mt. ' + volcanoData.name;
+            // Update volcano name in title with proper formatting
+            const displayNames = {
+                'Great Sitkin': 'Great Sitkin',
+                'Mauna Loa': 'Mauna Loa',
+                'Shishaldin': 'Mt. Shishaldin',
+                'Spurr': 'Mt. Spurr',
+                'Kilauea': 'Kīlauea'  // Note: data has "Kilauea", display as "Kīlauea" with macron
+            };
+            const displayName = displayNames[volcanoData.name] || 'Mt. ' + volcanoData.name;
             
-            // Re-apply magma letter effect after volcano name changes
-            applyMagmaEffect();
+            // Update the FULL subtitle text (applyMagmaEffect destroys the span structure)
+            const subtitle = document.querySelector('.magma-text');
+            if (subtitle) {
+                subtitle.textContent = `Live Seismic Data From ${displayName}`;
+                
+                // Re-apply magma letter effect after volcano name changes
+                applyMagmaEffect();
+            }
             
             availableStations = {
                 seismic: volcanoData.seismic.map(s => ({

@@ -182,6 +182,7 @@ Completely migrated from threading to subprocess-based architecture:
 ## v1.12 - Fractional Sample Accumulation Fix
 
 **Version**: v1.12  
+**Commit**: 9668ab1  
 **Commit Message**: "v1.12 Fix: Implemented fractional sample accumulation for high-speed playback - fixed 60 FPS interval with sample debt tracking enables accurate 5-500 Hz playback (was limited by browser setInterval minimum ~4-10ms), now actually achieves 500 Hz turbo mode"
 
 ### Problem Discovered:

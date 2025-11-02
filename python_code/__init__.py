@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.12"
+__version__ = "1.13"
 __commit_message__ = (
-    "v1.12 Fix: Implemented fractional sample accumulation for high-speed playback - fixed 60 FPS interval with sample debt tracking enables accurate 5-500 Hz playback (was limited by browser setInterval minimum ~4-10ms), now actually achieves 500 Hz turbo mode"
+    "v1.13 Fix: Dynamic volcano name display now works - updates full subtitle text before reapplying magma effect (was trying to update span destroyed by innerHTML clear), custom formatting per volcano (Great Sitkin, Mauna Loa, Mt. Shishaldin, Mt. Spurr, Kīlauea)"
 )
 
 # Import key modules to make them available when importing the package
