@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.07"
+__version__ = "1.08"
 __commit_message__ = (
-    "v1.07 Feature: Integrated complete Parameter Mapping Sonification system into index.html - added stats panel, data buffer management, adaptive playback rate, RAW/SMOOTHED/AMOUNT meters, linked amount controls with Live Amplitude checkbox, fade in/out audio transitions"
+    "v1.08 Feature: Integrated on-demand SeedLink chunk forwarding to Render backend - auto-start/shutdown, efficient polling (1 req/sec ID check + full chunk on change), connection status indicators, 1s chunk finalization, backend auto-detects localhost vs Render"
 )
 
 # Import key modules to make them available when importing the package
