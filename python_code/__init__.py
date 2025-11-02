@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.03"
+__version__ = "1.04"
 __commit_message__ = (
-    "v1.03 Enhancement: Added adaptive speed control to chunk viewer - configurable buffer thresholds, linear ramping transitions, 60fps display, fixed meter width"
+    "v1.04 Major Update: Data-first architecture refactor, IRIS duplicate detection/auto-deduplication, parameter mapping sonification with RAW/SMOOTHED meters, audio synthesis with amplitude/frequency mapping (100-300Hz), exponential smoothing, visualization toggle"
 )
 
 # Import key modules to make them available when importing the package

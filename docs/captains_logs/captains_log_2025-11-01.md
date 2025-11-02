@@ -263,7 +263,139 @@ Ramp: newRate = startRate + (delta * step/totalSteps) for each 100ms
 
 ### Version
 **v1.03**  
+**Commit**: `Pending`  
 **Commit Message**: "v1.03 Enhancement: Added adaptive speed control to chunk viewer - configurable buffer thresholds, linear ramping transitions, 60fps display, fixed meter width"
+
+---
+
+## Data-First Architecture & Parameter Mapping Sonification
+
+### Major Refactoring: Data-First Architecture (5 Phases Completed)
+
+**Goal**: Separate data calculations from visualization to enable modular, reusable code where rendering is optional.
+
+#### Phase 1: Data State Object
+- Created centralized `dataState` object holding all calculated values
+- Added `updateDataState()` function running at 60fps independently
+- Stores: currentOutput (raw + normalized), smoothedOutput, adaptive scaling, visual data window, statistics
+- Runs continuously even when visualization is paused
+
+#### Phase 2: Extracted Adaptive Scaling Logic
+- Removed min/max calculations from `drawWaveform()`
+- All scaling calculations moved to `updateDataState()`
+- Rendering functions now pure - only read from `dataState` and update DOM
+
+#### Phase 3 & 4: Current Value & Stats Separation (Combined)
+- Extracted current output calculation (raw + normalized) to data loop
+- Split `updateStats()` into calculate (data loop) + render (display loop)
+- Meter updates now read pre-calculated values from `dataState`
+
+#### Phase 5: Visualization Toggle
+- Added checkbox to pause waveform rendering
+- Meter bar and stats continue updating when visualization paused
+- Shows "WAVEFORM PAUSED" overlay when disabled
+
+### IRIS Duplicate Detection & Auto-Deduplication
+
+**Problem**: IRIS sometimes sends overlapping data chunks causing duplicate waveform patterns.
+
+**Solution Implemented**:
+1. **Exact Overlap Detection**: Checks up to 500 samples for matches between buffer end and chunk start
+2. **Internal Pattern Detection**: Finds repeating patterns within chunks (95% similarity threshold)
+3. **Fingerprint Comparison**: Compares first/last 10 values between chunks
+4. **Automatic De-duplication**: When exact overlap detected (≥10 samples):
+   - Trims duplicate samples from START of new chunk
+   - Only adds clean data to buffer
+   - Logs removal with before/after sizes
+   - Shows orange badge in chunk log
+
+**Result**: Successfully catches and removes IRIS overlaps (example: removed 390 duplicate samples from chunk 2392)
+
+### Adaptive Rate Conservative Tuning
+
+**Change**: Updated low-buffer rates to be more conservative:
+- ≤500 samples: 40 Hz → **20 Hz** (50% slower for max cushion)
+- ≤1000 samples: 60 Hz → **50 Hz** (17% slower)  
+- ≤1500 samples: 80 Hz → **70 Hz** (13% slower)
+
+**Reason**: Provide more time for chunks to arrive when buffer is critically low, preventing starvation.
+
+### Parameter Mapping Sonification Section
+
+#### Left Side: Instantaneous Output Meters
+- **RAW Meter**: Shows `dataState.currentOutputNormalized` (green gradient)
+- **SMOOTHED Meter**: Shows lowpass filtered version (orange gradient)
+- Both update at 60fps, displays as vertical bars with normalized values (0-1)
+- **Smoothing Controls**:
+  - Enable/disable checkbox
+  - Smooth Time slider: 20-500ms (default 100ms)
+  - Exponential smoothing: `y[n] = α·x[n] + (1-α)·y[n-1]`
+  - Alpha calculated from smooth time: `α = 1 - exp(-Δt/τ)`
+
+#### Right Side: Audio Synthesis
+- **Sine Wave Generator**: Using Web Audio API OscillatorNode
+- **Start/Stop Audio** button
+- **Parameter Mapping** (data-driven):
+  - **Map to Amplitude** (default ON): Gain = smoothedValue * 0.5
+  - **Map to Frequency** (default OFF): 100-300 Hz range
+  - Redundant mapping: Both can be active simultaneously
+- **Audio Parameter Updates**:
+  - Updates at 60fps from `dataState.smoothedOutputNormalized`
+  - Uses `exponentialRampToValueAtTime()` with 20ms ramp to prevent clicks
+  - Displays real-time amplitude and frequency values
+
+### Major Bug Fixed: Audio Clicking
+
+**Problem**: Crazy clicking sounds when audio enabled
+**Root Causes**:
+1. Using `setValueAtTime()` caused instantaneous jumps at 60fps
+2. 60 discontinuities/second = audible clicks
+**Solution**:
+- Changed to `exponentialRampToValueAtTime()` with 20ms ramp time
+- Added `cancelScheduledValues()` to prevent automation conflicts
+- Clamped gain to minimum 0.001 (exponential ramps can't go to zero)
+**Result**: Smooth, click-free parameter updates
+
+### Key Learnings:
+
+1. **Data-First Architecture**: Separating calculations from rendering enables:
+   - True modularity (can extract and reuse modules)
+   - Optional visualization
+   - Multiple visualizations from same data source
+   - Easier testing and verification
+
+2. **IRIS Data Quality**: Overlapping chunks are a known issue, frontend de-duplication is essential
+
+3. **Web Audio API**: Parameter changes must use ramps, not instant sets, to avoid clicks
+
+4. **Exponential Smoothing at Audio Rates**: Proper alpha calculation critical: `α = 1 - exp(-1/(τ·fs))`
+
+### Technical Architecture:
+
+**Data Loop (ALWAYS RUNS @ 60fps)**:
+```
+updateDataState()
+  ├─ Calculate currentOutput (raw + normalized)
+  ├─ Calculate smoothedOutput (exponential filter)
+  ├─ Extract visualData window
+  ├─ Calculate adaptive scaling (min/max)
+  └─ Calculate statistics
+```
+
+**Render Loop (CONDITIONAL @ 60fps)**:
+```
+drawWaveform()
+  ├─ updateStats() → read dataState
+  ├─ updateScanLine() → read dataState
+  ├─ updateParameterMappingMeters() → read dataState (RAW + SMOOTHED)
+  ├─ updateAudioParameters() → read dataState (map to audio)
+  └─ if (visualizationEnabled) { draw canvas }
+```
+
+### Version
+**v1.04**  
+**Commit**: `Pending`  
+**Commit Message**: "v1.04 Major Update: Data-first architecture refactor, IRIS duplicate detection/auto-deduplication, parameter mapping sonification with RAW/SMOOTHED meters, audio synthesis with amplitude/frequency mapping (100-300Hz), exponential smoothing, visualization toggle"
 
 ---
 
