@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.13"
+__version__ = "1.14"
 __commit_message__ = (
-    "v1.13 Fix: Dynamic volcano name display now works - updates full subtitle text before reapplying magma effect (was trying to update span destroyed by innerHTML clear), custom formatting per volcano (Great Sitkin, Mauna Loa, Mt. Shishaldin, Mt. Spurr, Kīlauea)"
+    "v1.14 Feature: Efficient Mode (40 FPS visuals) + Seamless data fetch with crossfade - added Efficient Mode toggle for 40 FPS waveform/spectrogram and reduced update intervals, implemented seamless audio transitions that keep old audio playing during fetch with 1s crossfade to new data, analyser switches mid-fade for continuous visualizations"
 )
 
 # Import key modules to make them available when importing the package

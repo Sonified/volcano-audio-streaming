@@ -250,3 +250,74 @@ function advanceMappingScan() {
 
 ---
 
+## v1.13 - Dynamic Volcano Name Display Fix
+
+**Version**: v1.13  
+**Commit**: c66f275  
+**Commit Message**: "v1.13 Fix: Dynamic volcano name display now works - updates full subtitle text before reapplying magma effect (was trying to update span destroyed by innerHTML clear), custom formatting per volcano (Great Sitkin, Mauna Loa, Mt. Shishaldin, Mt. Spurr, Kīlauea), updated page title to 'Ride the Volcano'"
+
+### Problem Discovered:
+
+User reported that volcano names in the subtitle were NOT updating when selecting different volcanoes from the dropdown. The subtitle always showed "Kīlauea" regardless of selection.
+
+### Root Cause:
+
+The `applyMagmaEffect()` function was destroying the subtitle's DOM structure:
+
+```javascript
+function applyMagmaEffect() {
+    const subtitle = document.querySelector('.magma-text');
+    subtitle.innerHTML = ''; // ❌ This DESTROYS the <span id="volcanoName"> element!
+    // Then rebuilds character-by-character WITHOUT preserving the span
+}
+```
+
+The original HTML had:
+```html
+<h2 class="magma-text">Live Seismic Data From <span id="volcanoName">Kīlauea</span></h2>
+```
+
+When `loadStations()` ran, it tried to update `document.getElementById('volcanoName')`, but after the first call to `applyMagmaEffect()`, that span no longer existed in the DOM! Console logs confirmed: `volcanoName element: null`.
+
+### Solution:
+
+Instead of trying to update a nested span (which gets destroyed), update the ENTIRE subtitle text content before reapplying the magma effect:
+
+```javascript
+// Update the FULL subtitle text (applyMagmaEffect destroys the span structure)
+const subtitle = document.querySelector('.magma-text');
+if (subtitle) {
+    subtitle.textContent = `Live Seismic Data From ${displayName}`;
+    
+    // Re-apply magma letter effect after volcano name changes
+    applyMagmaEffect();
+}
+```
+
+### Custom Volcano Name Formatting:
+
+```javascript
+const displayNames = {
+    'Great Sitkin': 'Great Sitkin',      // No "Mt."
+    'Mauna Loa': 'Mauna Loa',            // No "Mt."
+    'Shishaldin': 'Mt. Shishaldin',      // With "Mt."
+    'Spurr': 'Mt. Spurr',                // With "Mt."
+    'Kilauea': 'Kīlauea'                 // No "Mt.", add macron
+};
+```
+
+### Additional Changes:
+
+- Updated page `<title>` from "🌋 Feel Live Volcanic Activity" to "Ride the Volcano"
+- Removed debug console logs for cleaner output
+- Simplified `loadStations()` function
+
+### Files Modified:
+
+- `index.html` - Fixed volcano name updating logic, simplified `applyMagmaEffect()`, updated page title
+- `python_code/__init__.py` - Version bump to 1.13
+
+**Volcano names now change dynamically! 🌋**
+
+---
+

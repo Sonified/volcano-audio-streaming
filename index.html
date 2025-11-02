@@ -662,6 +662,13 @@
                     </select>
                 </div>
                 
+                <div class="control-group">
+                    <label for="efficientMode" style="cursor: pointer;">
+                        <input type="checkbox" id="efficientMode" onchange="toggleEfficientMode()" style="width: 18px; height: 18px; cursor: pointer; vertical-align: middle; margin-right: 5px;">
+                        Efficient Mode
+                    </label>
+                </div>
+                
                 <div style="display: none;">
                     <input type="checkbox" id="enableNormalize" checked style="width: 24px; height: 24px; cursor: pointer;">
                     <label for="enableNormalize" style="margin-bottom: 0; cursor: pointer; font-weight: 700; font-size: 18px; color: #333;">Normalization</label>
@@ -988,6 +995,11 @@
         let isMuted = false;
         let isPlaying = false;
         let isPaused = false;
+        
+        // Efficient mode settings
+        let efficientModeEnabled = false;
+        let lastWaveformDrawTime = 0;
+        let lastSpectrogramDrawTime = 0;
         let isLooping = false;
         let currentPlaybackRate = 1.0;
         let streamStartTime = 0;
@@ -1425,70 +1437,51 @@
                 const highpassFreq = document.getElementById('highpassFreq').value;
                 const enableNormalize = document.getElementById('enableNormalize').checked;
                 
-                // ===== STOP OLD PLAYBACK AND CLEAN UP =====
+                // ===== KEEP OLD PLAYBACK RUNNING WHILE FETCHING NEW DATA =====
                 // Set flag to ignore any stale "finished" messages
                 isFetchingNewData = true;
-                // Reset spectrogram initialization flag so canvas clears on new stream
-                spectrogramInitialized = false;
                 
-                // Immediately update status to show fetching (don't wait for fade-out)
-                const baseMessage = 'Fetching data from Render backend';
+                // Save references to old nodes (keep them playing)
+                const oldWorkletNode = workletNode;
+                const oldGainNode = gainNode;
+                const oldMasterMuteGain = masterMuteGain;
+                const oldAnalyserNode = analyserNode; // Keep for visualization during crossfade
+                const hadOldPlayback = (oldWorkletNode && isPlaying);
+                
+                // Clear global references so initAudioWorklet creates new ones
+                workletNode = null;
+                gainNode = null;
+                masterMuteGain = null;
+                analyserNode = null;
+                
+                // DON'T reset spectrogram - let it continue scrolling seamlessly!
+                // spectrogramInitialized stays true for continuous visualization
+                
+                // Update status to show fetching
+                const baseMessage = 'Fetching new data (current audio continues)';
                 document.getElementById('status').className = 'status info loading';
                 document.getElementById('status').textContent = baseMessage;
                 
-                if (workletNode) {
-                    console.log('🛑 Stopping old playback and cleaning up for new data...');
-                    
-                    // Clear the old worklet's message handler FIRST to prevent queued messages
-                    workletNode.port.onmessage = null;
-                    
-                    // Fade out current playback if playing (but don't wait - status already updated)
-                    if (gainNode && audioContext && isPlaying) {
-                        gainNode.gain.cancelScheduledValues(audioContext.currentTime);
-                        gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05);
-                        // Don't await - let fade happen in background while we continue
-                    }
-                    
-                    // Disconnect old worklet node (disconnects from gainNode automatically)
-                    workletNode.disconnect();
-                    workletNode = null;
-                    
-                    // Disconnect old gain node (if it exists)
-                    if (gainNode) {
-                        gainNode.disconnect();
-                        gainNode = null;
-                    }
-                    
-                    if (masterMuteGain) {
-                        masterMuteGain.disconnect();
-                        masterMuteGain = null;
-                    }
-                    
-                    // Reset mute state
-                    isMuted = false;
-                    const muteIndicator = document.getElementById('muteIndicator');
-                    if (muteIndicator) {
-                        muteIndicator.style.display = 'none';
-                    }
-                    
-                    // Clear old data
-                    allReceivedData = [];
-                    currentMetadata = null; // Clear metadata for duration calculation
-                    document.getElementById('playbackDuration').textContent = '--'; // Reset duration display
-                    window.playbackDurationSeconds = null; // Clear stored duration
-                    stopPositionTracking(); // Stop position tracking
-                    document.getElementById('currentPosition').textContent = '0m 0s'; // Reset position display
-                    
-                    // Reset playback state
-                    isPlaying = false;
-                    isPaused = false;
-                    
-                    console.log('✅ Old playback stopped and cleaned up');
+                console.log(hadOldPlayback ? '🎵 Keeping old playback running while fetching new data...' : '📡 Fetching new data...');
+                
+                // Initialize NEW AudioWorklet (creates new nodes alongside old ones)
+                await initAudioWorklet();
+                
+                // Save new analyser for later, but keep using old one for visualization during crossfade
+                const newAnalyserNode = analyserNode;
+                if (oldAnalyserNode) {
+                    analyserNode = oldAnalyserNode; // Drawing functions continue using old analyser
                 }
                 
-                // Initialize fresh AudioWorklet (will create new node)
-                await initAudioWorklet();
+                // Start new nodes at zero volume (will fade in after data loads)
+                if (gainNode && audioContext) {
+                    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+                }
+                
+                // Preserve mute state for new masterMuteGain
+                if (masterMuteGain && audioContext && isMuted) {
+                    masterMuteGain.gain.setValueAtTime(0, audioContext.currentTime);
+                }
                 
                 // Update UI - disable all playback controls during fetch
                 const startBtn = document.getElementById('startBtn');
@@ -1693,6 +1686,59 @@
                 
                 // Update playback duration display
                 updatePlaybackDuration();
+                
+                // ===== CROSSFADE FROM OLD TO NEW =====
+                if (hadOldPlayback && oldGainNode && gainNode && audioContext) {
+                    console.log('🔄 Crossfading to new audio (1 second)...');
+                    const fadeTime = 1.0;
+                    const now = audioContext.currentTime;
+                    
+                    // Fade in new audio (from 0.0001 → 1.0)
+                    gainNode.gain.cancelScheduledValues(now);
+                    gainNode.gain.setValueAtTime(0.0001, now);
+                    gainNode.gain.exponentialRampToValueAtTime(1.0, now + fadeTime);
+                    
+                    // Fade out old audio (from current → 0.0001)
+                    oldGainNode.gain.cancelScheduledValues(now);
+                    oldGainNode.gain.setValueAtTime(oldGainNode.gain.value, now);
+                    oldGainNode.gain.exponentialRampToValueAtTime(0.0001, now + fadeTime);
+                    
+                    // Switch to new analyser after fade completes (for visualization)
+                    setTimeout(() => {
+                        console.log('🔄 Switching to new analyser for visualization...');
+                        analyserNode = newAnalyserNode;
+                    }, fadeTime * 500); // Switch halfway through fade
+                    
+                    // Disconnect old nodes after fade completes
+                    setTimeout(() => {
+                        console.log('🗑️ Cleaning up old audio nodes...');
+                        if (oldWorkletNode) {
+                            oldWorkletNode.port.onmessage = null;
+                            oldWorkletNode.disconnect();
+                        }
+                        if (oldGainNode) oldGainNode.disconnect();
+                        if (oldMasterMuteGain) oldMasterMuteGain.disconnect();
+                        if (oldAnalyserNode) oldAnalyserNode.disconnect();
+                        console.log('✅ Old audio nodes disconnected');
+                    }, fadeTime * 1000 + 100); // Wait for fade + 100ms buffer
+                } else {
+                    // No old playback - just fade in new audio and use new analyser immediately
+                    analyserNode = newAnalyserNode;
+                    if (gainNode && audioContext) {
+                        console.log('🎵 Fading in new audio...');
+                        const now = audioContext.currentTime;
+                        gainNode.gain.cancelScheduledValues(now);
+                        gainNode.gain.setValueAtTime(0.0001, now);
+                        gainNode.gain.exponentialRampToValueAtTime(1.0, now + 0.3);
+                    }
+                }
+                
+                // Clear old data arrays
+                // Note: allReceivedData was already cleared and repopulated with new data
+                
+                // Clear metadata for duration calculation (already set to new metadata)
+                stopPositionTracking(); // Stop position tracking for old data
+                document.getElementById('currentPosition').textContent = '0m 0s'; // Reset position display
                 
                 // Clear the fetching flag - new data is loaded and ready
                 isFetchingNewData = false;
@@ -2289,6 +2335,16 @@
                 return;
             }
             
+            // Efficient mode: throttle to 40 FPS (25ms between frames)
+            if (efficientModeEnabled) {
+                const now = performance.now();
+                if (now - lastWaveformDrawTime < 25) {
+                    requestAnimationFrame(drawWaveform);
+                    return;
+                }
+                lastWaveformDrawTime = now;
+            }
+            
             const canvas = document.getElementById('waveform');
             const ctx = canvas.getContext('2d');
             const width = canvas.width;
@@ -2332,6 +2388,16 @@
             if (isPaused || !isPlaying) {
                 requestAnimationFrame(drawSpectrogram);
                 return;
+            }
+            
+            // Efficient mode: throttle to 40 FPS (25ms between frames)
+            if (efficientModeEnabled) {
+                const now = performance.now();
+                if (now - lastSpectrogramDrawTime < 25) {
+                    requestAnimationFrame(drawSpectrogram);
+                    return;
+                }
+                lastSpectrogramDrawTime = now;
             }
             
             const canvas = document.getElementById('spectrogram');
@@ -2485,6 +2551,57 @@
             }
             
             console.log(isMuted ? '🔇 MUTED' : '🔊 UNMUTED');
+        }
+        
+        // Toggle efficient mode
+        function toggleEfficientMode() {
+            efficientModeEnabled = !efficientModeEnabled;
+            console.log(efficientModeEnabled ? '⚡ Efficient Mode ENABLED (40 FPS visuals, reduced intervals)' : '🎬 Standard Mode (60 FPS visuals)');
+            
+            // Restart intervals with new rates
+            if (efficientModeEnabled) {
+                // Efficient mode: slower intervals
+                if (connectionStatusInterval) {
+                    clearInterval(connectionStatusInterval);
+                    connectionStatusInterval = setInterval(updateConnectionIndicator, 1000); // 1 FPS
+                }
+                if (mappingAdaptiveInterval) {
+                    clearInterval(mappingAdaptiveInterval);
+                    mappingAdaptiveInterval = setInterval(updateMappingAdaptiveRate, 500); // 2 FPS
+                }
+                if (mappingUpdateInterval) {
+                    clearInterval(mappingUpdateInterval);
+                    mappingUpdateInterval = setInterval(() => {
+                        const viewActiveMappingEnabled = document.getElementById('viewActiveMapping').checked;
+                        if (viewActiveMappingEnabled) {
+                            updateMappingStats();
+                        }
+                        updateMappingParameterMeters();
+                        updateMappingAudioParameters();
+                    }, 25); // 40 FPS
+                }
+            } else {
+                // Standard mode: faster intervals
+                if (connectionStatusInterval) {
+                    clearInterval(connectionStatusInterval);
+                    connectionStatusInterval = setInterval(updateConnectionIndicator, 200); // 5 FPS
+                }
+                if (mappingAdaptiveInterval) {
+                    clearInterval(mappingAdaptiveInterval);
+                    mappingAdaptiveInterval = setInterval(updateMappingAdaptiveRate, 100); // 10 FPS
+                }
+                if (mappingUpdateInterval) {
+                    clearInterval(mappingUpdateInterval);
+                    mappingUpdateInterval = setInterval(() => {
+                        const viewActiveMappingEnabled = document.getElementById('viewActiveMapping').checked;
+                        if (viewActiveMappingEnabled) {
+                            updateMappingStats();
+                        }
+                        updateMappingParameterMeters();
+                        updateMappingAudioParameters();
+                    }, 17); // ~60 FPS
+                }
+            }
         }
         
         // Keyboard listener for Enter key mute toggle
