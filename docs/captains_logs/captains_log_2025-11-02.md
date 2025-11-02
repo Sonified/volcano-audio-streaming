@@ -321,3 +321,259 @@ const displayNames = {
 
 ---
 
+## v1.14 - Efficient Mode + Seamless Data Fetch
+
+**Version**: v1.14  
+**Commit**: 6e99844  
+**Commit Message**: "v1.14 Feature: Efficient Mode (40 FPS visuals) + Seamless data fetch with crossfade - added Efficient Mode toggle for 40 FPS waveform/spectrogram and reduced update intervals, implemented seamless audio transitions that keep old audio playing during fetch with 1s crossfade to new data, analyser switches mid-fade for continuous visualizations"
+
+### Feature 1: Efficient Mode
+
+**Problem:**
+The application was running all visualizations at 60 FPS constantly, which could be taxing on CPU/battery for laptops and lower-end devices. Several processes were updating more frequently than necessary.
+
+**Solution - Efficient Mode Toggle:**
+
+Added a checkbox in the top control bar (after High Pass filter) that enables performance optimizations:
+
+**Standard Mode (default - 60 FPS):**
+- Waveform: 60 FPS (`requestAnimationFrame`)
+- Spectrogram: 60 FPS (`requestAnimationFrame`)
+- Mapping UI updates: 60 FPS (17ms interval)
+- Connection status: 5 FPS (200ms interval)
+- Adaptive rate updates: 10 FPS (100ms interval)
+
+**Efficient Mode (40 FPS):**
+- Waveform: 40 FPS (25ms throttle via timestamp check)
+- Spectrogram: 40 FPS (25ms throttle via timestamp check)
+- Mapping UI updates: 40 FPS (25ms interval)
+- Connection status: 1 FPS (1000ms interval)
+- Adaptive rate updates: 2 FPS (500ms interval)
+
+**Implementation:**
+- Added `efficientModeEnabled` flag and timestamp trackers (`lastWaveformDrawTime`, `lastSpectrogramDrawTime`)
+- `drawWaveform()` and `drawSpectrogram()` check elapsed time before drawing
+- `toggleEfficientMode()` function restarts intervals with new rates
+- Maintains smooth 40 FPS animations (imperceptible to most users)
+- ~33% reduction in CPU usage for visualizations
+
+**Expected Impact:**
+- Significant battery savings on laptops
+- Reduced CPU usage without noticeable quality loss
+- 40 FPS still feels very smooth for real-time seismic data
+
+### Feature 2: Seamless Data Fetch with Crossfade
+
+**Problem:**
+When fetching new data, the old audio would immediately stop, disconnect all nodes, and create an awkward silence during the download/processing phase (often several seconds). The spectrogram would also clear completely, creating a jarring visual interruption.
+
+**Old Flow (abrupt cutoff):**
+1. Stop/disconnect old worklet/gain/analyser
+2. Clear visualizations
+3. Fetch new data (silence during download)
+4. Create new worklet
+5. Load data → play
+
+**Solution - Continuous Audio with Crossfade:**
+
+Keep the old audio playing seamlessly while new data downloads in the background, then perform a smooth 1-second crossfade.
+
+**New Flow (seamless):**
+1. Save references to old nodes (keep playing)
+2. Create NEW worklet/gain/analyser/mute nodes alongside old ones
+3. Start new nodes at zero volume
+4. Fetch data in background (old audio continues)
+5. Load new data into new worklet
+6. **1-second crossfade:**
+   - New audio: 0.0001 → 1.0 (exponential ramp)
+   - Old audio: current → 0.0001 (exponential ramp)
+   - Analyser switches at 0.5s (mid-fade)
+7. After fade: disconnect old nodes
+
+**Key Implementation Details:**
+
+```javascript
+// Save old nodes before creating new ones
+const oldWorkletNode = workletNode;
+const oldGainNode = gainNode;
+const oldMasterMuteGain = masterMuteGain;
+const oldAnalyserNode = analyserNode;
+const hadOldPlayback = (oldWorkletNode && isPlaying);
+
+// Clear globals so initAudioWorklet creates new ones
+workletNode = null;
+gainNode = null;
+masterMuteGain = null;
+analyserNode = null;
+
+// Create new audio chain
+await initAudioWorklet();
+
+// Start new nodes at zero volume
+gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+
+// Keep using old analyser for visualization during crossfade
+const newAnalyserNode = analyserNode;
+analyserNode = oldAnalyserNode;
+
+// ... fetch and load data ...
+
+// Crossfade (1 second)
+gainNode.gain.exponentialRampToValueAtTime(1.0, now + 1.0);  // New: fade in
+oldGainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.0);  // Old: fade out
+
+// Switch analyser mid-fade (0.5s)
+setTimeout(() => { analyserNode = newAnalyserNode; }, 500);
+
+// Cleanup old nodes after fade (1.1s)
+setTimeout(() => { /* disconnect old nodes */ }, 1100);
+```
+
+**Preserved During Transition:**
+- ✅ Mute state (Enter key toggle)
+- ✅ Playback speed
+- ✅ Volume level
+
+**Visual Continuity:**
+- Spectrogram does NOT clear (keeps scrolling seamlessly)
+- Waveform transitions smoothly from old to new data
+- Status shows "Fetching new data (current audio continues)" during download
+
+**User Experience:**
+- Radio-style seamless transitions between datasets
+- No awkward silence or visual gaps
+- Professional, polished feel
+- User can keep listening while exploring different time windows/stations
+
+### Files Modified:
+
+- `index.html` - Added Efficient Mode toggle, throttling logic in draw functions, seamless fetch with crossfade
+- `python_code/__init__.py` - Version bump to 1.14
+
+**Smooth transitions and better performance! 🎵🔄⚡**
+
+---
+
+## v1.15 - Loop/Finish Fade Fixes
+
+**Version**: v1.15  
+**Commit**: [pending]  
+**Commit Message**: "v1.15 Fix: Loop/finish fades (separate gain stage + early fade-out) - created separate liveAmplitudeGain stage to prevent Live Amplitude from canceling loop fades, fixed playback speed race condition by setting speed before sending data to worklet, fixed fade-out clicks by using loop-soon warning to start fade early while audio still playing, added speed-adjusted fade duration that scales inversely with playback speed, comprehensive fade logging for debugging, adjusted Gain control spacing"
+
+### Problems Discovered:
+
+1. **Clicks at loop points** - User reported hard clicks when audio looped or finished, even with loop disabled
+2. **Live Amplitude interference** - Live Amplitude feature was calling `gainNode.gain.cancelScheduledValues()` every ~17ms, which canceled the loop fade-in/fade-out ramps
+3. **Playback speed race condition** - Worklet started playing at default 1.0x speed before receiving speed update message, causing timing issues
+4. **Fade-out too late** - Fade-out was triggered AFTER buffer already ran out (worklet outputting silence), causing clicks
+5. **UI overlap** - Gain control overlapping with Scroll Speed number display
+
+### Solutions Implemented:
+
+#### 1. Separate Gain Stage for Live Amplitude
+
+Created a two-stage gain architecture to prevent interference:
+
+```javascript
+// NEW audio graph:
+workletNode → gainNode → liveAmplitudeGain → analyserNode + masterMuteGain → destination
+              ↑                ↑
+         Volume slider    Live Amplitude
+         + Loop fades     modulation
+```
+
+**Before:**
+- `gainNode` handled both volume AND Live Amplitude modulation
+- Live Amplitude's frequent `cancelScheduledValues()` calls destroyed loop fades
+
+**After:**
+- `gainNode` handles volume slider + loop fades (uninterrupted)
+- `liveAmplitudeGain` handles Live Amplitude modulation (independent)
+- They multiply together for final output
+- **No interference = no clicks!**
+
+#### 2. Fixed Playback Speed Race Condition
+
+**Problem:** Playback speed was set AFTER data was sent to worklet, causing initial samples to play at wrong speed.
+
+**Solution:** Set speed IMMEDIATELY after creating worklet, before sending any data:
+
+```javascript
+await initAudioWorklet();
+
+// ⚡ CRITICAL: Set speed BEFORE sending data
+updatePlaybackSpeed();
+console.log(`Set playback speed BEFORE sending data: ${currentPlaybackRate.toFixed(2)}x`);
+
+// THEN send data to worklet...
+```
+
+This ensures:
+- ✅ Duration calculations are accurate
+- ✅ Position tracking is smooth
+- ✅ Fades trigger at the right time
+
+#### 3. Early Fade-Out Using "loop-soon" Warning
+
+**Problem:** Worklet sends "finished" event AFTER buffer is empty (already outputting silence). Fade-out happened too late = click.
+
+**Solution:** Use "loop-soon" warning (~100ms before end) to start fade-out WHILE audio is still playing:
+
+```javascript
+// "loop-soon" fires with ~100ms left
+if (gainNode && audioContext) {
+    const currentGain = gainNode.gain.value;
+    const baseFadeDuration = Math.min(0.08, secondsRemaining * 0.8);
+    const speedAdjustedFade = baseFadeDuration / speed;  // Scale with speed!
+    const fadeDuration = Math.min(0.08, speedAdjustedFade);
+    
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + fadeDuration);
+}
+```
+
+**Timeline:**
+- ~100ms before end: Start fade-out (audio still playing)
+- Buffer runs out: Audio already faded to silence
+- "finished" event: Just handle UI (fade already done)
+
+#### 4. Speed-Adjusted Fade Duration
+
+Fade duration now scales inversely with playback speed:
+
+- **1x speed**: 80ms fade ✓
+- **2x speed**: 40ms fade (half duration) ✓
+- **4x speed**: 20ms fade (quarter duration) ✓
+- **10x speed**: 8ms fade ✓
+- **0.5x speed**: 80ms fade (capped at max) ✓
+
+Keeps fades perceptually appropriate at all speeds!
+
+#### 5. Comprehensive Logging
+
+Added detailed console logging for debugging:
+
+```
+🔔 RECEIVED "finished" EVENT from worklet
+   isFetchingNewData: false
+   isLooping: false
+   gainNode exists: true
+   audioContext exists: true
+📉 STARTING EARLY FADE-OUT (before buffer runs out)...
+🔽 EARLY FADE-OUT: 1.0000 → 0.0001 over 80.0ms (speed: 1.00x, 100.0ms remaining)
+🏁 BUFFER EMPTY: ...
+   (Fade-out already completed via early "loop-soon" trigger)
+```
+
+#### 6. UI Spacing Fix
+
+Increased gap between Scroll Speed and Gain controls from 20px → 55px to prevent overlap.
+
+### Files Modified:
+
+- `index.html` - Separate liveAmplitudeGain stage, early fade-out logic, speed-adjusted fade duration, comprehensive logging, UI spacing
+- `python_code/__init__.py` - Version bump to 1.15
+
+**Smooth, click-free fades at all playback speeds! 🎵✨**
+
+---
+

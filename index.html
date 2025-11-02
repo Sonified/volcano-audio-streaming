@@ -237,6 +237,41 @@
             background: #ff3333 !important;
         }
         
+        /* Spectrogram Gain Slider */
+        #spectrogramGain::-webkit-slider-track {
+            background: #5a1a1a !important;
+            height: 4px !important;
+            border-radius: 2px !important;
+        }
+        
+        #spectrogramGain::-webkit-slider-thumb {
+            background: #cc3333 !important;
+            height: 20px !important;
+            width: 20px !important;
+            border-radius: 50% !important;
+        }
+        
+        #spectrogramGain::-webkit-slider-thumb:hover {
+            background: #ff3333 !important;
+        }
+        
+        #spectrogramGain::-moz-range-track {
+            background: #5a1a1a !important;
+            height: 4px !important;
+            border-radius: 2px !important;
+        }
+        
+        #spectrogramGain::-moz-range-thumb {
+            background: #cc3333 !important;
+            height: 18px !important;
+            width: 18px !important;
+            border-radius: 50% !important;
+        }
+        
+        #spectrogramGain::-moz-range-thumb:hover {
+            background: #ff3333 !important;
+        }
+        
         button {
             padding: 12px 24px;
             font-size: 16px;
@@ -712,12 +747,22 @@
             <canvas id="waveform" width="1200" height="135"></canvas>
             <canvas id="spectrogram" width="1200" height="550"></canvas>
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 8px 0; padding-left: 40px; padding-right: 40px;">
-                <!-- Left: Scroll Speed -->
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <label for="spectrogramScrollSpeed" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Scroll Speed:</label>
-                    <div style="position: relative; width: 150px; height: 20px;">
-                        <input type="range" id="spectrogramScrollSpeed" min="0" max="100" step="1" value="67" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram scroll speed">
-                        <span id="spectrogramScrollSpeedValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+                <!-- Left: Scroll Speed and Gain -->
+                <div style="display: flex; align-items: center; gap: 55px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="spectrogramScrollSpeed" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Scroll Speed:</label>
+                        <div style="position: relative; width: 150px; height: 20px;">
+                            <input type="range" id="spectrogramScrollSpeed" min="0" max="100" step="1" value="67" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram scroll speed">
+                            <span id="spectrogramScrollSpeedValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="spectrogramGain" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Gain:</label>
+                        <div style="position: relative; width: 150px; height: 20px;">
+                            <input type="range" id="spectrogramGain" min="-10" max="10" step="1" value="0" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram visual gain (does not affect audio)" oninput="changeSpectrogramGain()">
+                            <span id="spectrogramGainValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -1009,6 +1054,7 @@
         let loadingInterval = null; // Interval for animated loading dots
         let spectrogramInitialized = false; // Flag to track if spectrogram has been cleared for first time
         let spectrogramScrollSpeed = 1.0; // Scroll speed multiplier (default 1.0x)
+        let spectrogramGain = 1.0; // Visual gain multiplier (default 1.0x, does not affect audio)
         let spectrogramFrameCounter = 0; // Frame counter for controlling scroll speed
         let visualizationStarted = false; // Flag to prevent multiple visualization loops
         let currentMetadata = null; // Store metadata for duration calculation
@@ -1017,6 +1063,7 @@
         let pausedPosition = 0; // Track position when paused (in seconds)
         let playbackDurationSeconds = null; // Store calculated playback duration in seconds
         let baseVolume = 1.0; // Base volume from slider (used when Live Amplitude modulates main audio)
+        let liveAmplitudeGain = null;  // Separate gain stage for Live Amplitude modulation
         
         // AudioWorklet processor code
         const workletCode = `
@@ -1238,13 +1285,19 @@
             gainNode = audioContext.createGain();
             gainNode.gain.value = 0.0001; // Start at near-zero for fade-in
             
+            // Create separate gain stage for Live Amplitude modulation
+            liveAmplitudeGain = audioContext.createGain();
+            liveAmplitudeGain.gain.value = 1.0; // Start at unity gain
+            
             // Create master mute gain node (for Enter key mute toggle)
             masterMuteGain = audioContext.createGain();
             masterMuteGain.gain.value = 1.0; // Start unmuted
             
+            // Chain: workletNode -> gainNode (volume/fades) -> liveAmplitudeGain (modulation) -> analyserNode + masterMuteGain -> destination
             workletNode.connect(gainNode);
-            gainNode.connect(analyserNode);
-            gainNode.connect(masterMuteGain);  // Route through mute control
+            gainNode.connect(liveAmplitudeGain);
+            liveAmplitudeGain.connect(analyserNode);
+            liveAmplitudeGain.connect(masterMuteGain);  // Route through mute control
             masterMuteGain.connect(audioContext.destination);
             
             workletNode.port.onmessage = (event) => {
@@ -1271,17 +1324,35 @@
                         console.log(`🎚️ Exponential fade-in: 0.0001 → ${targetVolume.toFixed(2)}`);
                     }
                 } else if (type === 'loop-soon') {
-                    // Gapless loop warning: ~100ms left, start preparing next loop
+                    // Gapless loop warning: ~100ms left, start fade-out NOW before buffer runs out!
                     const { samplesRemaining, secondsRemaining, speed } = event.data;
                     const remainingMs = secondsRemaining * 1000;
                     console.log(`⏱️ APPROACHING END: ${samplesRemaining.toLocaleString()} samples remaining (${remainingMs.toFixed(1)}ms @ speed ${speed.toFixed(2)}x)`);
                     
+                    // Start fade-out NOW (while audio is still playing) for smooth transition
+                    console.log('📉 STARTING EARLY FADE-OUT (before buffer runs out)...');
+                    if (gainNode && audioContext) {
+                        const currentGain = gainNode.gain.value;
+                        // Scale fade duration with playback speed (faster = shorter fade)
+                        const baseFadeDuration = Math.min(0.08, secondsRemaining * 0.8); // 80% of remaining time, max 80ms
+                        const speedAdjustedFade = baseFadeDuration / speed; // Divide by speed for proportional feel
+                        const fadeDuration = Math.min(0.08, speedAdjustedFade); // Still cap at 80ms max for slow playback
+                        gainNode.gain.cancelScheduledValues(audioContext.currentTime);
+                        gainNode.gain.setValueAtTime(currentGain, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + fadeDuration);
+                        console.log(`🔽 EARLY FADE-OUT: ${currentGain.toFixed(4)} → 0.0001 over ${(fadeDuration*1000).toFixed(1)}ms (speed: ${speed.toFixed(2)}x, ${remainingMs.toFixed(1)}ms remaining)`);
+                    }
+                    
                     if (isLooping && allReceivedData && allReceivedData.length > 0) {
-                        console.log('🔁 Loop approaching - preparing gapless transition...');
-                        // Note: We'll still do the full reset on 'finished' for clean fade
-                        // This just gives us advanced warning for future optimization
+                        console.log('🔁 Loop approaching - fade-out started, will fade-in on loop...');
                     }
                 } else if (type === 'finished') {
+                    console.log('🔔 RECEIVED "finished" EVENT from worklet');
+                    console.log(`   isFetchingNewData: ${isFetchingNewData}`);
+                    console.log(`   isLooping: ${isLooping}`);
+                    console.log(`   gainNode exists: ${!!gainNode}`);
+                    console.log(`   audioContext exists: ${!!audioContext}`);
+                    
                     // Ignore "finished" messages if we're fetching new data (stale message from old worklet)
                     if (isFetchingNewData) {
                         console.log('⚠️ Ignoring stale "finished" message - new data is being fetched');
@@ -1291,22 +1362,11 @@
                     const { totalSamples, speed, expectedDurationSeconds } = event.data;
                     const durationAt1x = totalSamples / 44100;
                     console.log(`🏁 BUFFER EMPTY: Total samples: ${totalSamples.toLocaleString()}, Speed: ${speed.toFixed(2)}x, Duration @ 1x: ${durationAt1x.toFixed(3)}s, Expected @ ${speed.toFixed(2)}x: ${expectedDurationSeconds.toFixed(3)}s`);
+                    console.log('   (Fade-out already completed via early "loop-soon" trigger)');
                     
-                    // Fade out before handling finish
-                    const fadeOutStartTime = audioContext.currentTime;
-                    if (gainNode) {
-                        const currentGain = gainNode.gain.value;
-                        gainNode.gain.cancelScheduledValues(audioContext.currentTime);
-                        gainNode.gain.setValueAtTime(currentGain, audioContext.currentTime);
-                        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.05); // 50ms exponential fade-out
-                        console.log(`🔽 FADE-OUT START: Current gain: ${currentGain.toFixed(4)}, Target: 0.0001, Duration: 50ms, Audio time: ${fadeOutStartTime.toFixed(3)}s`);
-                    }
-                    
-                    // Wait for fade, then handle loop/finish
+                    // Handle loop/finish immediately (fade already happened in loop-soon)
                     setTimeout(() => {
-                        const fadeOutCompleteTime = audioContext.currentTime;
-                        const fadeOutDuration = fadeOutCompleteTime - fadeOutStartTime;
-                        console.log(`🔽 FADE-OUT COMPLETE: Audio time: ${fadeOutCompleteTime.toFixed(3)}s, Actual fade duration: ${(fadeOutDuration * 1000).toFixed(1)}ms`);
+                        console.log('🔄 Processing finish/loop logic...');
                         
                         // Double-check we're still not fetching new data
                         if (isFetchingNewData) {
@@ -1327,18 +1387,24 @@
                             console.log(`🎚️ Playback speed: ${currentPlaybackRate.toFixed(2)}x (base slider speed × multiplier)`);
                             
                             // Fade back in for loop
+                            console.log('📈 INITIATING FADE-IN FOR LOOP...');
                             const fadeInStartTime = audioContext.currentTime;
                             if (gainNode) {
                                 const targetVolume = parseFloat(document.getElementById('volumeSlider').value) / 100;
                                 const currentGain = gainNode.gain.value;
+                                console.log(`   Current gainNode.gain.value: ${currentGain.toFixed(4)}`);
+                                console.log(`   Target volume from slider: ${targetVolume.toFixed(2)}`);
                                 gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
                                 gainNode.gain.exponentialRampToValueAtTime(Math.max(0.01, targetVolume), audioContext.currentTime + 0.05);
                                 console.log(`🔼 FADE-IN START: Current gain: ${currentGain.toFixed(4)}, Start: 0.0001, Target: ${targetVolume.toFixed(2)}, Duration: 50ms, Audio time: ${fadeInStartTime.toFixed(3)}s`);
+                            } else {
+                                console.error('❌ CANNOT FADE IN: gainNode is null!');
                             }
                             
                             // No need to reload data - it's already in the buffer!
                         } else {
                             // Not looping - playback finished
+                            console.log('🛑 PLAYBACK FINISHED (not looping)');
                             isPlaying = false;
                             stopPositionTracking();
                             const playBtn = document.getElementById('playPauseBtn');
@@ -1347,8 +1413,9 @@
                             playBtn.classList.add('pulse-play');
                             document.getElementById('status').className = 'status success';
                             document.getElementById('status').textContent = '✅ Playback finished! Click Play to replay or enable Loop.';
+                            console.log('✅ UI updated for finished state');
                         }
-                    }, 50);
+                    }, 10);  // Minimal delay since fade already happened in loop-soon
                 }
             };
             
@@ -1444,6 +1511,7 @@
                 // Save references to old nodes (keep them playing)
                 const oldWorkletNode = workletNode;
                 const oldGainNode = gainNode;
+                const oldLiveAmplitudeGain = liveAmplitudeGain;
                 const oldMasterMuteGain = masterMuteGain;
                 const oldAnalyserNode = analyserNode; // Keep for visualization during crossfade
                 const hadOldPlayback = (oldWorkletNode && isPlaying);
@@ -1451,6 +1519,7 @@
                 // Clear global references so initAudioWorklet creates new ones
                 workletNode = null;
                 gainNode = null;
+                liveAmplitudeGain = null;
                 masterMuteGain = null;
                 analyserNode = null;
                 
@@ -1466,6 +1535,11 @@
                 
                 // Initialize NEW AudioWorklet (creates new nodes alongside old ones)
                 await initAudioWorklet();
+                
+                // ⚡ CRITICAL: Set playback speed IMMEDIATELY before sending data to prevent race condition!
+                // Worklet defaults to 1.0x but UI might be set to different speed
+                updatePlaybackSpeed();
+                console.log(`🎚️ Set playback speed BEFORE sending data: ${currentPlaybackRate.toFixed(2)}x (prevents race condition)`);
                 
                 // Save new analyser for later, but keep using old one for visualization during crossfade
                 const newAnalyserNode = analyserNode;
@@ -1680,11 +1754,7 @@
                 // Signal that all data has been sent
                 workletNode.port.postMessage({ type: 'data-complete' });
                 
-                // Set playback speed to current setting (with multiplier applied)
-                updatePlaybackSpeed();
-                console.log(`🎚️ Set playback speed for new data: ${currentPlaybackRate.toFixed(2)}x (base slider speed × multiplier)`);
-                
-                // Update playback duration display
+                // Update playback duration display (speed was already set before sending data)
                 updatePlaybackDuration();
                 
                 // ===== CROSSFADE FROM OLD TO NEW =====
@@ -1717,6 +1787,7 @@
                             oldWorkletNode.disconnect();
                         }
                         if (oldGainNode) oldGainNode.disconnect();
+                        if (oldLiveAmplitudeGain) oldLiveAmplitudeGain.disconnect();
                         if (oldMasterMuteGain) oldMasterMuteGain.disconnect();
                         if (oldAnalyserNode) oldAnalyserNode.disconnect();
                         console.log('✅ Old audio nodes disconnected');
@@ -2184,20 +2255,18 @@
             const slider = document.getElementById('volumeSlider');
             const volume = parseFloat(slider.value) / 100;
             
-            // Store base volume for Live Amplitude modulation
+            // Store base volume (not used anymore since we have separate gain stages)
             baseVolume = volume;
             
             document.getElementById('volumeValue').textContent = volume.toFixed(2);
             
             if (gainNode && audioContext) {
-                // If Live Amplitude is enabled, updateMappingAudioParameters will handle gain
-                // Otherwise, apply volume directly
-                if (!liveAmplitudeEnabled) {
-                    // Linear ramp for volume slider (direct user control)
-                    gainNode.gain.setValueAtTime(gainNode.gain.value, audioContext.currentTime);
-                    gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.05);
-                }
-                // If Live Amplitude is enabled, let updateMappingAudioParameters update the gain
+                // gainNode always handles base volume (separate from Live Amplitude modulation)
+                // Cancel any previous ramps first to prevent interference
+                const now = audioContext.currentTime;
+                gainNode.gain.cancelScheduledValues(now);
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+                gainNode.gain.linearRampToValueAtTime(volume, now + 0.05);
             }
         }
         
@@ -2437,8 +2506,8 @@
                     
                     // Draw new column
                     for (let i = 0; i < bufferLength; i++) {
-                        const value = dataArray[i];
-                        const percent = value / 255;
+                        const value = dataArray[i] * spectrogramGain; // Apply visual gain
+                        const percent = Math.min(value / 255, 1.0); // Clamp to 0-1
                         const hue = percent * 60;
                         const saturation = 100;
                         const lightness = 10 + (percent * 60);
@@ -2460,8 +2529,8 @@
                 // Draw new columns on the right
                 for (let p = 0; p < scrollPixels; p++) {
                     for (let i = 0; i < bufferLength; i++) {
-                        const value = dataArray[i];
-                        const percent = value / 255;
+                        const value = dataArray[i] * spectrogramGain; // Apply visual gain
+                        const percent = Math.min(value / 255, 1.0); // Clamp to 0-1
                         const hue = percent * 60;
                         const saturation = 100;
                         const lightness = 10 + (percent * 60);
@@ -2526,6 +2595,38 @@
                 displayText = displaySpeed.toFixed(0) + 'x';
             }
             document.getElementById('spectrogramScrollSpeedValue').textContent = displayText;
+        }
+        
+        // Change spectrogram visual gain (does not affect audio)
+        function changeSpectrogramGain() {
+            const slider = document.getElementById('spectrogramGain');
+            const value = parseFloat(slider.value);
+            
+            // Logarithmic mapping: 0.1x to 10x
+            // value ranges from -10 to 10
+            // -10 → 0.1x, 0 → 1x, 10 → 10x
+            if (value < 0) {
+                // Negative: 0.1x to 1x (exponential)
+                spectrogramGain = Math.pow(10, value / 10); // -10→0.1, -5→0.316, 0→1
+            } else if (value > 0) {
+                // Positive: 1x to 10x (linear)
+                spectrogramGain = 1 + (value / 10) * 9; // 0→1, 5→5.5, 10→10
+            } else {
+                spectrogramGain = 1.0;
+            }
+            
+            // Update display
+            let displayText;
+            if (spectrogramGain < 1) {
+                displayText = spectrogramGain.toFixed(2) + 'x';
+            } else if (spectrogramGain === 1.0) {
+                displayText = '1.0x';
+            } else {
+                displayText = spectrogramGain.toFixed(1) + 'x';
+            }
+            
+            document.getElementById('spectrogramGainValue').textContent = displayText;
+            console.log(`📊 Spectrogram gain: ${displayText}`);
         }
         
         // Master mute toggle (Enter key)
@@ -3486,13 +3587,8 @@
                 startMappingSystem();
             }
             
-            // If disabling, restore base volume to main audio
-            if (!liveAmplitudeEnabled && gainNode && audioContext) {
-                const now = audioContext.currentTime;
-                gainNode.gain.cancelScheduledValues(now);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-                gainNode.gain.linearRampToValueAtTime(baseVolume, now + 0.05);
-            }
+            // If disabling, restore unity gain to liveAmplitudeGain (let updateMappingAudioParameters handle it)
+            // No need to do anything here - updateMappingAudioParameters will handle the transition
             
             console.log(`🎚️ Amplitude: ${liveAmplitudeEnabled ? 'ENABLED' : 'DISABLED'}`);
         }
@@ -3513,13 +3609,8 @@
                 startMappingSystem();
             }
             
-            // If disabling, restore base volume to main audio
-            if (!mappingAmountEnabled && gainNode && audioContext) {
-                const now = audioContext.currentTime;
-                gainNode.gain.cancelScheduledValues(now);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-                gainNode.gain.linearRampToValueAtTime(baseVolume, now + 0.05);
-            }
+            // If disabling, restore unity gain to liveAmplitudeGain (let updateMappingAudioParameters handle it)
+            // No need to do anything here - updateMappingAudioParameters will handle the transition
             
             console.log(`🎚️ Mapping Amount Enable: ${mappingAmountEnabled ? 'ENABLED' : 'DISABLED'}`);
         }
@@ -3709,15 +3800,21 @@
             }
             
             // Apply amplitude modulation to MAIN AUDIO (audified volcanic data) if Live Amplitude is enabled AND audio is playing
-            if (liveAmplitudeEnabled && gainNode && audioContext) {
-                // Multiply base volume by compressed value
-                const modulatedGain = baseVolume * compressedValue;
+            // Uses separate liveAmplitudeGain stage so it doesn't interfere with loop fades on gainNode
+            if (liveAmplitudeEnabled && liveAmplitudeGain && audioContext) {
+                // Set gain to compressed value (gainNode handles base volume separately)
                 const now = audioContext.currentTime;
                 const rampTime = 0.02;  // 20ms ramp
                 
-                gainNode.gain.cancelScheduledValues(now);
-                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-                gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, modulatedGain), now + rampTime);
+                liveAmplitudeGain.gain.cancelScheduledValues(now);
+                liveAmplitudeGain.gain.setValueAtTime(liveAmplitudeGain.gain.value, now);
+                liveAmplitudeGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, compressedValue), now + rampTime);
+            } else if (liveAmplitudeGain && audioContext) {
+                // Live Amplitude disabled - ensure liveAmplitudeGain is at unity
+                const now = audioContext.currentTime;
+                liveAmplitudeGain.gain.cancelScheduledValues(now);
+                liveAmplitudeGain.gain.setValueAtTime(liveAmplitudeGain.gain.value, now);
+                liveAmplitudeGain.gain.linearRampToValueAtTime(1.0, now + 0.05);
             }
             
             // Update mapping audio (sine wave) parameters if enabled
