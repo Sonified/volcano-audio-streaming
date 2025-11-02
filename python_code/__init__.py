@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.04"
+__version__ = "1.05"
 __commit_message__ = (
-    "v1.04 Major Update: Data-first architecture refactor, IRIS duplicate detection/auto-deduplication, parameter mapping sonification with RAW/SMOOTHED meters, audio synthesis with amplitude/frequency mapping (100-300Hz), exponential smoothing, visualization toggle"
+    "v1.05 Feature: Created dashboard_simple_seed_sonif.html - streamlined sonification interface with stats and parameter mapping only, adaptive checkbox in playback rate, removed waveform visualization and adaptive control card"
 )
 
 # Import key modules to make them available when importing the package

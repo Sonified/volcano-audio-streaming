@@ -399,3 +399,79 @@ drawWaveform()
 
 ---
 
+## Simple Sonification Dashboard
+
+### Changes Made:
+
+Created `dashboard_simple_seed_sonif.html` - a streamlined, focused sonification interface:
+
+1. **Simplified Layout (2 Sections Only)**
+   - **Top Stats Row**: 5 stat panels (chunks received, total received, samples remaining, playback rate with adaptive checkbox, time since chunk)
+   - **Bottom Parameter Mapping Section**: RAW/SMOOTHED meters + audio synthesis controls
+   - Removed: Waveform visualization canvas and chunk log display
+   - Removed: Entire adaptive speed control card with threshold configuration UI
+
+2. **Adaptive Control Integration**
+   - Moved adaptive toggle to **checkbox next to "Playback Rate" label**
+   - Hardcoded adaptive configuration in JavaScript (`ADAPTIVE_CONFIG` object):
+     - Left thresholds: 500/1000/1500 samples → rates: 20/50/70 Hz
+     - Normal rate: 100 Hz (between 1500-4000 samples)
+     - Right thresholds: 4000/6000/8000 samples → rates: 120/150/200 Hz
+     - Smooth transition time: 3 seconds
+   - All adaptive logic preserved and functional, just UI simplified
+
+3. **Complete Backend Architecture Preserved**
+   - `dataState` object with all calculated values
+   - `updateDataState()` function running at 60fps
+   - Full de-duplication code (exact overlap detection, pattern matching, hash-based checks)
+   - Exponential smoothing algorithm
+   - Adaptive scaling for display range
+   - Buffer management (bounded to 50,000 samples)
+   - All console logging intact
+
+4. **Parameter Mapping & Sonification (Fully Retained)**
+   - RAW and SMOOTHED meters (dual vertical bars)
+   - Smoothing controls (enable/disable + 20-500ms time slider)
+   - Audio synthesis (sine wave with start/stop)
+   - Amplitude mapping (0-0.5 gain)
+   - Frequency mapping (100-300 Hz range)
+   - Real-time parameter displays
+
+5. **Stripped Visual Code**
+   - Removed: `drawWaveform()`, `resizeCanvas()`, canvas drawing code
+   - Removed: Scan line visualization
+   - Removed: Chunk boundary markers
+   - Removed: Chunk log UI
+   - Removed: Current output meter from waveform section
+   - **Kept**: All underlying calculations that produce instantaneous values
+
+### Design Philosophy:
+
+This dashboard focuses on **data-driven sonification** without visual waveform distractions:
+- **Listen** to the data through parameter mapping
+- **Monitor** key statistics in real-time
+- **Control** playback rate and adaptive behavior with minimal UI
+- Ultra-clean interface optimized for sonification workflows
+
+### Key Benefits:
+
+1. **Faster Loading**: No heavy canvas rendering
+2. **Lower CPU**: No 60fps waveform drawing
+3. **Cleaner UI**: Focus on sonification controls and stats
+4. **Same Backend**: All data processing and adaptive logic identical to full viewer
+5. **Modular**: Can run side-by-side with full viewer for different purposes
+
+### Use Cases:
+
+- Pure sonification experiments (listen without watching)
+- Low-resource environments (Raspberry Pi, older machines)
+- Focused parameter mapping development
+- Audio-only monitoring stations
+
+### Version
+**v1.05**  
+**Commit**: `Pending`  
+**Commit Message**: "v1.05 Feature: Created dashboard_simple_seed_sonif.html - streamlined sonification interface with stats and parameter mapping only, adaptive checkbox in playback rate, removed waveform visualization and adaptive control card"
+
+---
+

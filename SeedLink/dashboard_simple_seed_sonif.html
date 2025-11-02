@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Sonification - SeedLink Waveform Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            color: #00d4ff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            color: #a0c4ff;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            color: #00ff88;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: rgba(0, 212, 255, 0.3);
+            color: #00d4ff;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: rgba(0, 212, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.active {
+            background: rgba(0, 255, 136, 0.5);
+            color: #00ff88;
+            border-color: rgba(0, 255, 136, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌋 Simple Sonification - Waveform Scanner</h1>
+        
+        <!-- Stats Card -->
+        <div class="card">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Chunks Received</div>
+                    <div class="stat-value" id="chunk-count">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Received</div>
+                    <div class="stat-value" id="total-received">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Samples Remaining</div>
+                    <div class="stat-value" id="samples-remaining">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">
+                        Playback Rate
+                        <label style="display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; cursor: pointer; font-size: 0.85em;">
+                            <input type="checkbox" id="adaptive-toggle" onchange="toggleAdaptive()" 
+                                   style="width: 16px; height: 16px; cursor: pointer;">
+                            <span>Adaptive</span>
+                        </label>
+                    </div>
+                    <div class="stat-value">
+                        <input type="range" id="playback-rate-slider" min="1" max="200" value="100" 
+                               style="width: 100%; margin-bottom: 5px;"
+                               oninput="updatePlaybackRate(this.value)">
+                        <div id="playback-rate-display" style="font-size: 0.8em;">100 Hz</div>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Time Since Chunk</div>
+                    <div class="stat-value" id="time-since-chunk">--</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Parameter Mapping Sonification Card -->
+        <div class="card">
+            <h2>Parameter Mapping Sonification</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Left Side: Instantaneous Output Meters -->
+                <div>
+                    <h3 style="color: #00d4ff; font-size: 1.2em; margin-bottom: 15px;">Instantaneous Output</h3>
+                    
+                    <!-- Smoothing Controls -->
+                    <div style="margin-bottom: 20px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="smoothing-enabled" checked onchange="toggleSmoothing()" 
+                                       style="width: 20px; height: 20px; cursor: pointer;">
+                                <span style="font-size: 1em; color: #a0c4ff;">Enable Smoothing</span>
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label style="color: #a0c4ff; font-size: 0.9em; display: block; margin-bottom: 8px;">
+                                Smooth Time: <span id="smooth-time-display" style="color: #00ff88; font-weight: bold;">100 ms</span>
+                            </label>
+                            <input type="range" id="smooth-time-slider" min="20" max="500" value="100" 
+                                   style="width: 100%; cursor: pointer;"
+                                   oninput="updateSmoothTime(this.value)">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #a0c4ff; margin-top: 5px;">
+                                <span>20ms</span>
+                                <span>500ms</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dual Meters -->
+                    <div style="display: flex; gap: 40px; justify-content: center; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 8px;">
+                        <!-- RAW Meter -->
+                        <div style="text-align: center;">
+                            <div style="width: 60px; height: 300px; background: rgba(0, 0, 0, 0.5); border-radius: 8px; position: relative; margin-bottom: 10px;">
+                                <div style="position: absolute; top: 10px; bottom: 40px; left: 50%; transform: translateX(-50%); width: 30px; background: rgba(255, 255, 255, 0.1); border-radius: 15px; overflow: hidden;">
+                                    <div id="raw-meter-indicator" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #ff4444 0%, #ffff44 50%, #44ff44 100%); transition: height 0.05s ease; border-radius: 15px;"></div>
+                                </div>
+                                <div id="raw-meter-value" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 0.75em; color: #00ff88; font-weight: bold; font-family: monospace;">--</div>
+                            </div>
+                            <div style="color: #00ff88; font-weight: bold; font-size: 1em;">RAW</div>
+                        </div>
+                        
+                        <!-- SMOOTHED Meter -->
+                        <div style="text-align: center;">
+                            <div style="width: 60px; height: 300px; background: rgba(0, 0, 0, 0.5); border-radius: 8px; position: relative; margin-bottom: 10px;">
+                                <div style="position: absolute; top: 10px; bottom: 40px; left: 50%; transform: translateX(-50%); width: 30px; background: rgba(255, 255, 255, 0.1); border-radius: 15px; overflow: hidden;">
+                                    <div id="smoothed-meter-indicator" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #ff8844 0%, #ffcc44 50%, #88ff44 100%); transition: height 0.05s ease; border-radius: 15px;"></div>
+                                </div>
+                                <div id="smoothed-meter-value" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 0.75em; color: #ffaa00; font-weight: bold; font-family: monospace;">--</div>
+                            </div>
+                            <div style="color: #ffaa00; font-weight: bold; font-size: 1em;">SMOOTHED</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right Side: Audio Synthesis -->
+                <div>
+                    <h3 style="color: #00d4ff; font-size: 1.2em; margin-bottom: 15px;">Audio Synthesis</h3>
+                    
+                    <!-- Audio Controls -->
+                    <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 15px;">
+                            <button id="audio-toggle-btn" onclick="toggleAudio()" style="width: 100%; padding: 12px; background: rgba(0, 212, 255, 0.3); color: #00d4ff; border: 1px solid rgba(0, 212, 255, 0.5); border-radius: 8px; font-size: 1em; cursor: pointer;">
+                                🔊 Start Audio
+                            </button>
+                        </div>
+                        
+                        <div style="color: #a0c4ff; font-size: 0.85em; margin-bottom: 15px;">
+                            Sine Wave: <span id="audio-status" style="color: #ff4444; font-weight: bold;">OFF</span>
+                        </div>
+                        
+                        <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+                            <div style="color: #00d4ff; font-size: 0.95em; margin-bottom: 10px; font-weight: bold;">Parameter Mapping:</div>
+                            
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="amplitude-mapping" checked onchange="toggleAmplitudeMapping()" 
+                                           style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-size: 0.9em; color: #a0c4ff;">Map to Amplitude</span>
+                                </label>
+                            </div>
+                            
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="frequency-mapping" onchange="toggleFrequencyMapping()" 
+                                           style="width: 18px; height: 18px; cursor: pointer;">
+                                    <span style="font-size: 0.9em; color: #a0c4ff;">Map to Frequency (100-300 Hz)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Audio Parameters Display -->
+                    <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+                        <div style="color: #a0c4ff; font-size: 0.9em; margin-bottom: 10px;">Current Parameters:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-family: monospace; font-size: 0.9em;">
+                            <div>
+                                <div style="color: #00d4ff; font-size: 0.85em;">Amplitude:</div>
+                                <div id="audio-amplitude" style="color: #00ff88; font-weight: bold;">--</div>
+                            </div>
+                            <div>
+                                <div style="color: #00d4ff; font-size: 0.85em;">Frequency:</div>
+                                <div id="audio-frequency" style="color: #ffaa00; font-weight: bold;">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        const MAX_BUFFER_SIZE = 50000;  // Maximum buffer size (500 seconds at 100 Hz)
+        let dataBuffer = [];  // Bounded buffer - keeps most recent MAX_BUFFER_SIZE samples
+        let totalSamplesReceived = 0;  // Total samples received from server (cumulative)
+        let totalSamplesPlayed = 0;  // Total samples played/consumed
+        let chunkCount = 0;
+        let sampleRate = 100;  // Hz (data from server)
+        let playbackRate = 100;  // Hz (playback speed - adjustable)
+        let isPaused = false;
+        let scanInterval = null;  // Store interval handle so we can restart it
+        let lastChunkId = -1;  // Track last chunk ID to detect new data
+        let lastChunkTime = null;  // Timestamp of last chunk arrival
+        
+        // Smoothing control
+        let smoothingEnabled = true;  // Toggle for smoothing
+        let smoothTime = 100;  // Smooth time in milliseconds (default 100ms)
+        let smoothedValue = null;  // Current smoothed output value
+        let smoothAlpha = 0.01;  // Smoothing factor (calculated from smoothTime)
+        
+        // Audio synthesis
+        let audioContext = null;
+        let oscillator = null;
+        let gainNode = null;
+        let audioEnabled = false;
+        let amplitudeMappingEnabled = true;
+        let frequencyMappingEnabled = false;
+        const MIN_FREQUENCY = 100;  // Hz
+        const MAX_FREQUENCY = 300;  // Hz
+        
+        // Adaptive speed control
+        let adaptiveEnabled = false;
+        let targetPlaybackRate = 100;  // The rate we're trying to reach
+        let adaptiveInterval = null;  // Separate interval for adaptive rate updates
+        let currentRampInterval = null;  // Track active ramp to avoid overlapping ramps
+        
+        // Adaptive thresholds and rates (hardcoded configuration)
+        const ADAPTIVE_CONFIG = {
+            leftThresh1: 500,   leftRate1: 20,
+            leftThresh2: 1000,  leftRate2: 50,
+            leftThresh3: 1500,  leftRate3: 70,
+            normalRate: 100,
+            rightThresh1: 4000, rightRate1: 120,
+            rightThresh2: 6000, rightRate2: 150,
+            rightThresh3: 8000, rightRate3: 200,
+            smoothTransitionTime: 3  // seconds
+        };
+        
+        // Adaptive scaling (smooth exponential average)
+        let displayMin = 0;  // Current display minimum (smoothed)
+        let displayMax = 1;  // Current display maximum (smoothed)
+        let scaleInitialized = false;  // Track if we've done initial scaling
+        const SCALE_ALPHA = 0.0033;  // Smoothing factor (lower = slower adaptation)
+        
+        // ========================================
+        // DATA STATE OBJECT (Calculated Values)
+        // ========================================
+        // This object holds all computed values that are independent of visualization
+        // All these values are updated continuously
+        const dataState = {
+            // Current output (what's being "played" at the scan line)
+            currentOutputValue: null,        // Raw value at dataBuffer[0]
+            currentOutputNormalized: null,   // Normalized to [0, 1] range
+            
+            // Smoothed output (lowpass filtered)
+            smoothedOutputValue: null,       // Smoothed raw value
+            smoothedOutputNormalized: null,  // Smoothed normalized value
+            
+            // Adaptive scaling (for display range)
+            displayMin: 0,
+            displayMax: 1,
+            scaleInitialized: false,
+            currentMin: null,                // Min in current analysis window
+            currentMax: null,                // Max in current analysis window
+            
+            // Statistics
+            timeSinceLastChunk: null,        // Seconds since last chunk arrived
+            bufferFillPercent: 0,            // Buffer fill percentage
+            
+            // Last update timestamp
+            lastUpdated: Date.now()
+        };
+        
+        // ========================================
+        // END DATA STATE OBJECT
+        // ========================================
+        
+        // ========================================
+        // DATA UPDATE FUNCTION
+        // ========================================
+        // Updates all calculated values in dataState
+        // This runs continuously, independent of visualization
+        function updateDataState() {
+            // Update timestamp
+            dataState.lastUpdated = Date.now();
+            
+            // 1. Calculate current output value (what's at the scan line)
+            if (dataBuffer.length > 0) {
+                dataState.currentOutputValue = dataBuffer[0];
+                
+                // Normalize to [0, 1] range using current display scaling
+                const range = displayMax - displayMin;
+                const normalizedValue = range > 0 ? (dataState.currentOutputValue - displayMin) / range : 0.5;
+                dataState.currentOutputNormalized = Math.max(0, Math.min(1, normalizedValue));
+                
+                // Calculate smoothed output using exponential smoothing (lowpass filter)
+                if (smoothingEnabled) {
+                    if (smoothedValue === null) {
+                        // Initialize smoothed value with current value
+                        smoothedValue = dataState.currentOutputValue;
+                    } else {
+                        // Apply exponential smoothing: y[n] = alpha * x[n] + (1 - alpha) * y[n-1]
+                        smoothedValue = smoothAlpha * dataState.currentOutputValue + (1 - smoothAlpha) * smoothedValue;
+                    }
+                    dataState.smoothedOutputValue = smoothedValue;
+                    
+                    // Normalize smoothed value
+                    const smoothedNormalized = range > 0 ? (smoothedValue - displayMin) / range : 0.5;
+                    dataState.smoothedOutputNormalized = Math.max(0, Math.min(1, smoothedNormalized));
+                } else {
+                    // If smoothing disabled, use raw values
+                    dataState.smoothedOutputValue = dataState.currentOutputValue;
+                    dataState.smoothedOutputNormalized = dataState.currentOutputNormalized;
+                }
+            } else {
+                dataState.currentOutputValue = null;
+                dataState.currentOutputNormalized = null;
+                dataState.smoothedOutputValue = null;
+                dataState.smoothedOutputNormalized = null;
+            }
+            
+            // 2. Calculate adaptive scaling (min/max for display range)
+            const bufferLength = dataBuffer.length;
+            if (bufferLength > 1) {
+                const analysisWindow = Math.min(3000, bufferLength);
+                const analysisData = dataBuffer.slice(0, analysisWindow);
+                
+                // Find current min/max in analysis window
+                dataState.currentMin = Math.min(...analysisData);
+                dataState.currentMax = Math.max(...analysisData);
+                
+                // Initialize scaling immediately on first data
+                if (!dataState.scaleInitialized && analysisData.length > 100) {
+                    dataState.displayMin = dataState.currentMin;
+                    dataState.displayMax = dataState.currentMax;
+                    dataState.scaleInitialized = true;
+                    
+                    // Also update the old global variables (for compatibility)
+                    displayMin = dataState.displayMin;
+                    displayMax = dataState.displayMax;
+                    scaleInitialized = true;
+                    
+                    console.log(`📊 Initialized display scale: [${dataState.displayMin.toFixed(0)}, ${dataState.displayMax.toFixed(0)}]`);
+                }
+                
+                // Smooth adaptation using exponential moving average
+                dataState.displayMin = SCALE_ALPHA * dataState.currentMin + (1 - SCALE_ALPHA) * dataState.displayMin;
+                dataState.displayMax = SCALE_ALPHA * dataState.currentMax + (1 - SCALE_ALPHA) * dataState.displayMax;
+                
+                // Update global variables (for compatibility)
+                displayMin = dataState.displayMin;
+                displayMax = dataState.displayMax;
+            }
+            
+            // 3. Calculate statistics
+            if (lastChunkTime !== null) {
+                dataState.timeSinceLastChunk = (Date.now() - lastChunkTime) / 1000;
+            } else {
+                dataState.timeSinceLastChunk = null;
+            }
+            
+            dataState.bufferFillPercent = (bufferLength / MAX_BUFFER_SIZE * 100);
+        }
+        // ========================================
+        // END DATA UPDATE FUNCTION
+        // ========================================
+        
+        // Parameter mapping meters (raw and smoothed)
+        const rawMeterIndicator = document.getElementById('raw-meter-indicator');
+        const rawMeterValue = document.getElementById('raw-meter-value');
+        const smoothedMeterIndicator = document.getElementById('smoothed-meter-indicator');
+        const smoothedMeterValue = document.getElementById('smoothed-meter-value');
+        
+        // Toggle adaptive speed control
+        function toggleAdaptive() {
+            const checkbox = document.getElementById('adaptive-toggle');
+            adaptiveEnabled = checkbox.checked;
+            
+            if (adaptiveEnabled) {
+                console.log('🎚️ Adaptive speed control ENABLED');
+                
+                // Immediately calculate and set initial target rate
+                targetPlaybackRate = calculateTargetRate();
+                
+                // Start adaptive rate adjustment
+                if (adaptiveInterval) {
+                    clearInterval(adaptiveInterval);
+                }
+                adaptiveInterval = setInterval(updateAdaptiveRate, 100);  // Check every 100ms
+                // Also call it once immediately
+                updateAdaptiveRate();
+            } else {
+                console.log('🎚️ Adaptive speed control DISABLED');
+                
+                // Stop adaptive rate adjustment
+                if (adaptiveInterval) {
+                    clearInterval(adaptiveInterval);
+                    adaptiveInterval = null;
+                }
+                
+                // Stop any active ramp
+                if (currentRampInterval) {
+                    clearInterval(currentRampInterval);
+                    currentRampInterval = null;
+                }
+                
+                // Return to normal rate
+                targetPlaybackRate = ADAPTIVE_CONFIG.normalRate;
+                applyPlaybackRate(ADAPTIVE_CONFIG.normalRate);
+            }
+        }
+        
+        // Calculate target playback rate based on buffer size
+        function calculateTargetRate() {
+            const bufferSize = dataBuffer.length;
+            const cfg = ADAPTIVE_CONFIG;
+            
+            // Determine target rate based on buffer size
+            if (bufferSize <= cfg.leftThresh1) {
+                return cfg.leftRate1;
+            } else if (bufferSize <= cfg.leftThresh2) {
+                return cfg.leftRate2;
+            } else if (bufferSize <= cfg.leftThresh3) {
+                return cfg.leftRate3;
+            } else if (bufferSize >= cfg.rightThresh3) {
+                return cfg.rightRate3;
+            } else if (bufferSize >= cfg.rightThresh2) {
+                return cfg.rightRate2;
+            } else if (bufferSize >= cfg.rightThresh1) {
+                return cfg.rightRate1;
+            } else {
+                return cfg.normalRate;
+            }
+        }
+        
+        // Linear ramp from start rate to end rate over duration
+        function rampPlaybackRate(start, end, duration) {
+            // Clear any existing ramp
+            if (currentRampInterval) {
+                clearInterval(currentRampInterval);
+                currentRampInterval = null;
+            }
+            
+            // If already at target, do nothing
+            if (start === end) {
+                applyPlaybackRate(end);
+                return;
+            }
+            
+            const steps = Math.max(1, Math.round(duration * 10)); // 10 steps/sec
+            const delta = (end - start) / steps;
+            let i = 0;
+            
+            currentRampInterval = setInterval(() => {
+                i++;
+                const newRate = Math.round(start + delta * i);
+                const clampedRate = Math.max(1, Math.min(200, newRate));
+                applyPlaybackRate(clampedRate);
+                
+                if (i >= steps) {
+                    clearInterval(currentRampInterval);
+                    currentRampInterval = null;
+                    // Ensure we hit the exact target at the end
+                    applyPlaybackRate(end);
+                }
+            }, 100);
+        }
+        
+        // Update adaptive rate with smooth transitions (linear ramp)
+        function updateAdaptiveRate() {
+            if (!adaptiveEnabled) return;
+            
+            // Calculate what rate we should be at
+            const newTargetRate = calculateTargetRate();
+            
+            // If target changed, update it and start a new ramp
+            if (newTargetRate !== targetPlaybackRate) {
+                console.log(`🎯 Target rate changed: ${targetPlaybackRate} → ${newTargetRate} Hz (buffer: ${dataBuffer.length} samples)`);
+                targetPlaybackRate = newTargetRate;
+                
+                // Start ramping from current playback rate to new target
+                rampPlaybackRate(playbackRate, targetPlaybackRate, ADAPTIVE_CONFIG.smoothTransitionTime);
+            }
+        }
+        
+        // Apply a new playback rate (internal function)
+        function applyPlaybackRate(newRate) {
+            if (newRate === playbackRate) return;
+            
+            playbackRate = newRate;
+            document.getElementById('playback-rate-slider').value = playbackRate;
+            document.getElementById('playback-rate-display').textContent = playbackRate + ' Hz';
+            
+            // Restart scan interval with new rate
+            if (scanInterval) {
+                clearInterval(scanInterval);
+            }
+            scanInterval = setInterval(advanceScan, 1000 / playbackRate);
+        }
+        
+        // Fetch chunks from backend
+        async function fetchChunk() {
+            try {
+                const response = await fetch('http://localhost:8889/api/get_chunk');
+                const data = await response.json();
+                
+                // Check if this is actually NEW data (not a duplicate)
+                if (data.chunk_id && data.chunk_id !== lastChunkId && data.samples && data.samples.length > 0) {
+                    // NEW chunk from IRIS!
+                    lastChunkId = data.chunk_id;
+                    
+                    // ========================================
+                    // DUPLICATE PATTERN DETECTION
+                    // ========================================
+                    // Check for duplicate SEQUENCES/PATTERNS (not just consecutive identical values)
+                    
+                    // 1. Check for exact sequence match between end of buffer and start of new chunk
+                    let exactOverlap = 0;
+                    if (dataBuffer.length > 0) {
+                        const maxCheck = Math.min(500, dataBuffer.length, data.samples.length);
+                        for (let len = maxCheck; len >= 10; len--) {
+                            let matches = true;
+                            for (let i = 0; i < len; i++) {
+                                if (dataBuffer[dataBuffer.length - len + i] !== data.samples[i]) {
+                                    matches = false;
+                                    break;
+                                }
+                            }
+                            if (matches) {
+                                exactOverlap = len;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 2. Check for repeating patterns WITHIN the new chunk
+                    // Compare first 100 samples with samples at various offsets
+                    let internalDuplicate = null;
+                    const patternLength = Math.min(100, Math.floor(data.samples.length / 2));
+                    if (data.samples.length >= 200) {
+                        // Check if first 100 samples repeat anywhere in the chunk
+                        for (let offset = patternLength; offset < data.samples.length - patternLength; offset += 10) {
+                            let matchCount = 0;
+                            for (let i = 0; i < patternLength; i++) {
+                                if (data.samples[i] === data.samples[offset + i]) {
+                                    matchCount++;
+                                }
+                            }
+                            const similarity = matchCount / patternLength;
+                            if (similarity > 0.95) {  // 95% match = duplicate pattern
+                                internalDuplicate = {
+                                    offset: offset,
+                                    matchPercent: (similarity * 100).toFixed(1),
+                                    patternLength: patternLength
+                                };
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 3. Hash-based check: Compare statistical fingerprint with last chunk
+                    const newChunkHash = {
+                        min: Math.min(...data.samples.slice(0, 100)),
+                        max: Math.max(...data.samples.slice(0, 100)),
+                        mean: data.samples.slice(0, 100).reduce((a, b) => a + b, 0) / 100,
+                        first10: data.samples.slice(0, 10).join(','),
+                        last10: data.samples.slice(-10).join(',')
+                    };
+                    
+                    // Get last chunk fingerprint
+                    if (!window.lastChunkHash) window.lastChunkHash = null;
+                    const lastHash = window.lastChunkHash;
+                    
+                    // ========================================
+                    // AUTOMATIC DE-DUPLICATION
+                    // ========================================
+                    let deduplicatedSamples = data.samples;
+                    let removedDuplicates = 0;
+                    
+                    // If exact overlap detected, trim the duplicate samples from the NEW chunk
+                    if (exactOverlap >= 10) {
+                        console.warn(`🔧 AUTO-DEDUPLICATING chunk ${data.chunk_id}:`);
+                        console.warn(`   Removing ${exactOverlap} duplicate samples from start of chunk (IRIS overlap)`);
+                        console.warn(`   Original chunk size: ${data.samples.length} samples`);
+                        
+                        // Remove the overlapping samples from the start of the new chunk
+                        deduplicatedSamples = data.samples.slice(exactOverlap);
+                        removedDuplicates = exactOverlap;
+                        
+                        console.warn(`   Deduplicated chunk size: ${deduplicatedSamples.length} samples`);
+                        console.warn(`   ✅ Duplicate data removed - continuing with clean data`);
+                    }
+                    
+                    // If suspicious (same start but no exact overlap), still check
+                    if (!exactOverlap && lastHash && lastHash.first10 === newChunkHash.first10) {
+                        console.warn(`⚠️ SUSPICIOUS: Chunk ${data.chunk_id} starts with same 10 values as previous chunk!`);
+                        console.warn(`   This might be IRIS overlap but not exact match beyond 10 samples`);
+                        console.warn(`   Previous first 10:`, lastHash.first10);
+                        console.warn(`   Current first 10:`, newChunkHash.first10);
+                        console.warn(`   Keeping data (no exact overlap found)`);
+                    }
+                    
+                    // Log internal duplicates (informational only - don't remove these)
+                    if (internalDuplicate) {
+                        console.warn(`⚠️ INTERNAL PATTERN REPEAT in chunk ${data.chunk_id}:`);
+                        console.warn(`   Pattern at start (length ${internalDuplicate.patternLength}) repeats at offset ${internalDuplicate.offset}`);
+                        console.warn(`   Match: ${internalDuplicate.matchPercent}%`);
+                        console.warn(`   This is likely seismic periodicity - keeping data`);
+                    }
+                    
+                    // Store new chunk fingerprint for next comparison
+                    window.lastChunkHash = newChunkHash;
+                    // ========================================
+                    // END DUPLICATE DETECTION & DE-DUPLICATION
+                    // ========================================
+                    
+                    // Add deduplicated chunk to the buffer
+                    const samplesToAdd = deduplicatedSamples.length;
+                    chunkCount++;
+                    totalSamplesReceived += samplesToAdd;  // Track total received
+                    lastChunkTime = Date.now();  // Record when this chunk arrived
+                    
+                    // Add deduplicated samples to the internal buffer
+                    const beforeLength = dataBuffer.length;
+                    dataBuffer.push(...deduplicatedSamples);
+                    const afterLength = dataBuffer.length;
+                    
+                    if (removedDuplicates > 0) {
+                        console.log(`📊 Buffer before: ${beforeLength}, after: ${afterLength}, added: ${deduplicatedSamples.length} (removed ${removedDuplicates} duplicates)`);
+                    } else {
+                        console.log(`📊 Buffer before: ${beforeLength}, after: ${afterLength}, added: ${deduplicatedSamples.length}`);
+                    }
+                    
+                    // Trim buffer if it exceeds maximum size (sliding window)
+                    if (dataBuffer.length > MAX_BUFFER_SIZE) {
+                        const excess = dataBuffer.length - MAX_BUFFER_SIZE;
+                        dataBuffer.splice(0, excess);  // Remove oldest samples
+                        console.log(`📦 Buffer trimmed: removed ${excess} old samples, now at ${dataBuffer.length}/${MAX_BUFFER_SIZE}`);
+                    }
+                    
+                    // Debug: Show raw data range and buffer status
+                    const min = Math.min(...deduplicatedSamples);
+                    const max = Math.max(...deduplicatedSamples);
+                    const emptySpace = MAX_BUFFER_SIZE - dataBuffer.length;
+                    
+                    if (removedDuplicates > 0) {
+                        console.log(`📦 NEW CHUNK ${chunkCount} (ID: ${data.chunk_id}): ${deduplicatedSamples.length} samples (${data.samples.length} original, ${removedDuplicates} removed) | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+                    } else {
+                        console.log(`📦 NEW CHUNK ${chunkCount} (ID: ${data.chunk_id}): ${deduplicatedSamples.length} samples | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+                    }
+                    console.log(`   Buffer: ${dataBuffer.length}/${MAX_BUFFER_SIZE} filled | ${emptySpace} empty space remaining`);
+                    
+                    // Update sample rate if provided
+                    if (data.sample_rate) {
+                        sampleRate = data.sample_rate;
+                    }
+                    
+                    updateStats();
+                }
+            } catch (error) {
+                console.error('Error fetching chunk:', error);
+            }
+        }
+        
+        // Update statistics display using pre-calculated values from dataState
+        function updateStats() {
+            document.getElementById('chunk-count').textContent = chunkCount;
+            document.getElementById('total-received').textContent = totalSamplesReceived.toLocaleString();
+            document.getElementById('samples-remaining').textContent = dataBuffer.length.toLocaleString();
+            
+            // Use pre-calculated time since last chunk from dataState
+            if (dataState.timeSinceLastChunk !== null) {
+                document.getElementById('time-since-chunk').textContent = dataState.timeSinceLastChunk.toFixed(1) + 's';
+            } else {
+                document.getElementById('time-since-chunk').textContent = '--';
+            }
+        }
+        
+        // Update parameter mapping meters (data-driven, modular)
+        function updateParameterMappingMeters() {
+            // Update RAW meter using pre-calculated value from dataState
+            if (dataState.currentOutputNormalized !== null) {
+                const rawValue = dataState.currentOutputNormalized;
+                rawMeterIndicator.style.height = (rawValue * 100) + '%';
+                rawMeterValue.textContent = rawValue.toFixed(3);
+            } else {
+                rawMeterIndicator.style.height = '0%';
+                rawMeterValue.textContent = '--';
+            }
+            
+            // Update SMOOTHED meter using pre-calculated value from dataState
+            if (dataState.smoothedOutputNormalized !== null) {
+                const smoothedValue = dataState.smoothedOutputNormalized;
+                smoothedMeterIndicator.style.height = (smoothedValue * 100) + '%';
+                smoothedMeterValue.textContent = smoothedValue.toFixed(3);
+            } else {
+                smoothedMeterIndicator.style.height = '0%';
+                smoothedMeterValue.textContent = '--';
+            }
+        }
+        
+        // Advance playback by consuming data at playback rate
+        function advanceScan() {
+            if (!isPaused && dataBuffer.length > 0) {
+                // "Play" the sample at index 0 by removing it
+                dataBuffer.shift();  // Remove first element
+                totalSamplesPlayed++;   // Track total samples played
+            }
+        }
+        
+        // Toggle smoothing
+        function toggleSmoothing() {
+            smoothingEnabled = !smoothingEnabled;
+            const checkbox = document.getElementById('smoothing-enabled');
+            
+            if (smoothingEnabled) {
+                console.log(`🎛️ SMOOTHING ENABLED - smooth time: ${smoothTime}ms`);
+            } else {
+                console.log(`🎛️ SMOOTHING DISABLED - using raw values`);
+                smoothedValue = null;  // Reset smoothed value
+            }
+        }
+        
+        // Update smooth time
+        function updateSmoothTime(newTime) {
+            smoothTime = parseInt(newTime);
+            document.getElementById('smooth-time-display').textContent = smoothTime + ' ms';
+            
+            // Calculate new alpha: for exponential smoothing with time constant T (ms) at sample rate fs (Hz)
+            // alpha = 1 - exp(-1 / (T * fs / 1000))
+            // Assuming playback rate as sample rate
+            const timeConstant = smoothTime / 1000;  // Convert to seconds
+            const sampleInterval = 1 / playbackRate;  // Time between samples
+            smoothAlpha = 1 - Math.exp(-sampleInterval / timeConstant);
+            
+            console.log(`🎛️ Smooth time updated: ${smoothTime}ms (alpha: ${smoothAlpha.toFixed(4)})`);
+        }
+        
+        // Toggle audio synthesis
+        function toggleAudio() {
+            if (!audioEnabled) {
+                // Start audio
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create oscillator (sine wave)
+                oscillator = audioContext.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 200;  // Default frequency (middle of range)
+                
+                // Create gain node for amplitude control
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0.3;  // Default amplitude
+                
+                // Connect: oscillator -> gain -> destination
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                // Start oscillator
+                oscillator.start();
+                
+                audioEnabled = true;
+                document.getElementById('audio-toggle-btn').textContent = '🔇 Stop Audio';
+                document.getElementById('audio-toggle-btn').classList.add('active');
+                document.getElementById('audio-status').textContent = 'ON';
+                document.getElementById('audio-status').style.color = '#00ff88';
+                
+                console.log('🔊 Audio synthesis STARTED');
+            } else {
+                // Stop audio
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                    oscillator = null;
+                }
+                if (gainNode) {
+                    gainNode.disconnect();
+                    gainNode = null;
+                }
+                if (audioContext) {
+                    audioContext.close();
+                    audioContext = null;
+                }
+                
+                audioEnabled = false;
+                document.getElementById('audio-toggle-btn').textContent = '🔊 Start Audio';
+                document.getElementById('audio-toggle-btn').classList.remove('active');
+                document.getElementById('audio-status').textContent = 'OFF';
+                document.getElementById('audio-status').style.color = '#ff4444';
+                document.getElementById('audio-amplitude').textContent = '--';
+                document.getElementById('audio-frequency').textContent = '--';
+                
+                console.log('🔇 Audio synthesis STOPPED');
+            }
+        }
+        
+        // Toggle amplitude mapping
+        function toggleAmplitudeMapping() {
+            amplitudeMappingEnabled = !amplitudeMappingEnabled;
+            console.log(`🎚️ Amplitude mapping: ${amplitudeMappingEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // Toggle frequency mapping
+        function toggleFrequencyMapping() {
+            frequencyMappingEnabled = !frequencyMappingEnabled;
+            console.log(`🎚️ Frequency mapping: ${frequencyMappingEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // Update audio parameters based on smoothed value (data-driven)
+        function updateAudioParameters() {
+            if (!audioEnabled || !oscillator || !gainNode) return;
+            
+            const smoothedValue = dataState.smoothedOutputNormalized;
+            if (smoothedValue === null) return;
+            
+            const now = audioContext.currentTime;
+            const rampTime = 0.02;  // 20ms ramp to smooth parameter changes (prevents clicks)
+            
+            // Map to amplitude (0-1)
+            if (amplitudeMappingEnabled) {
+                const amplitude = smoothedValue * 0.5;  // Scale to reasonable volume (0-0.5)
+                // Use exponential ramp for smooth changes (prevents clicks)
+                gainNode.gain.cancelScheduledValues(now);
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+                gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, amplitude), now + rampTime);
+                document.getElementById('audio-amplitude').textContent = amplitude.toFixed(3);
+            } else {
+                // Fixed amplitude when not mapped
+                gainNode.gain.cancelScheduledValues(now);
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.3, now + rampTime);
+                document.getElementById('audio-amplitude').textContent = '0.300 (fixed)';
+            }
+            
+            // Map to frequency (100-300 Hz)
+            if (frequencyMappingEnabled) {
+                const frequency = MIN_FREQUENCY + smoothedValue * (MAX_FREQUENCY - MIN_FREQUENCY);
+                // Use exponential ramp for smooth changes (prevents clicks)
+                oscillator.frequency.cancelScheduledValues(now);
+                oscillator.frequency.setValueAtTime(oscillator.frequency.value, now);
+                oscillator.frequency.exponentialRampToValueAtTime(frequency, now + rampTime);
+                document.getElementById('audio-frequency').textContent = frequency.toFixed(1) + ' Hz';
+            } else {
+                // Fixed frequency when not mapped
+                oscillator.frequency.cancelScheduledValues(now);
+                oscillator.frequency.setValueAtTime(oscillator.frequency.value, now);
+                oscillator.frequency.exponentialRampToValueAtTime(200, now + rampTime);
+                document.getElementById('audio-frequency').textContent = '200.0 Hz (fixed)';
+            }
+        }
+        
+        // Update playback rate (manual slider control)
+        function updatePlaybackRate(newRate) {
+            const rate = parseInt(newRate);
+            
+            // Stop any active ramp
+            if (currentRampInterval) {
+                clearInterval(currentRampInterval);
+                currentRampInterval = null;
+            }
+            
+            // If adaptive is enabled, this is a manual override - disable adaptive
+            if (adaptiveEnabled) {
+                console.log(`🎚️ Manual rate change detected - disabling adaptive mode`);
+                const checkbox = document.getElementById('adaptive-toggle');
+                checkbox.checked = false;
+                toggleAdaptive();  // Turn off adaptive
+            }
+            
+            targetPlaybackRate = rate;
+            applyPlaybackRate(rate);
+            console.log(`🎚️ Playback rate manually set to ${rate} Hz`);
+        }
+        
+        // Main update loops
+        console.log(`🚀 Starting intervals - fetchChunk: 100ms, advanceScan: ${1000/playbackRate}ms, updateDataState: 17ms (~60fps), meters: 17ms (~60fps)`);
+        console.log(`🔄 Initial state - isPaused: ${isPaused}, buffer: ${dataBuffer.length}`);
+        
+        setInterval(fetchChunk, 100);  // Fetch chunks every 100ms
+        scanInterval = setInterval(advanceScan, 1000 / playbackRate);  // Scan at playback rate
+        setInterval(updateDataState, 17);  // Update data state at ~60 fps (ALWAYS RUNS)
+        setInterval(() => {
+            updateStats();
+            updateParameterMappingMeters();
+            updateAudioParameters();
+        }, 17);  // Update UI at ~60 fps
+        
+        // Initial updates
+        updateDataState();  // Initialize data state
+        updateStats();
+        updateSmoothTime(100);  // Initialize smooth time alpha (default 100ms)
+        
+        console.log(`✅ Intervals started - scanning should begin automatically when data arrives`);
+        console.log(`📊 Data state object is now tracking calculated values independently`);
+        console.log(`🎚️ Adaptive mode: ${adaptiveEnabled ? 'ENABLED' : 'DISABLED'} (toggle checkbox to enable)`);
+        
+        // Debug: Log data state every 5 seconds to verify it's updating
+        setInterval(() => {
+            console.log(`📊 Data State Update:`, {
+                currentOutput: dataState.currentOutputNormalized?.toFixed(3) || 'null',
+                smoothedOutput: dataState.smoothedOutputNormalized?.toFixed(3) || 'null',
+                displayRange: `[${dataState.displayMin.toFixed(0)}, ${dataState.displayMax.toFixed(0)}]`,
+                bufferFill: dataState.bufferFillPercent.toFixed(1) + '%',
+                timeSinceChunk: dataState.timeSinceLastChunk?.toFixed(1) + 's' || 'null'
+            });
+        }, 5000);
+    </script>
+</body>
+</html>
+
