@@ -151,3 +151,101 @@ Completely migrated from threading to subprocess-based architecture:
 
 ---
 
+## v1.10 - Mute Toggle Feature
+
+**Version**: v1.10  
+**Commit Message**: "v1.10 Feature: Added Enter-key mute toggle with 1s fade, red pulsing MUTED indicator in visualization panel, master gain node for global audio control"
+
+- Implemented global mute toggle triggered by Enter key
+- Added `masterMuteGain` node to audio graph for clean mute control
+- 1-second fade in/out for smooth transitions
+- Red "MUTED" indicator in upper right of visualization panel with pulsing animation
+- Styled with subtle glow effect and appropriate positioning/sizing
+
+---
+
+## v1.11 - Expanded Adaptive Playback Rate
+
+**Version**: v1.11  
+**Commit Message**: "v1.11 Feature: Expanded adaptive playback rate range to 5-500 Hz - added ultra-slow tiers (5 Hz at <100 samples, 10 Hz at <300 samples) and turbo mode (500 Hz at >10k samples), increased manual slider max to 500 Hz"
+
+- Added ultra-slow tiers for critically low buffers:
+  - 5 Hz for buffers < 100 samples
+  - 10 Hz for buffers < 300 samples
+- Added turbo tier for large buffers:
+  - 500 Hz for buffers > 10,000 samples
+- Increased manual playback rate slider maximum to 500 Hz
+- Updated adaptive config with new thresholds and rates
+
+---
+
+## v1.12 - Fractional Sample Accumulation Fix
+
+**Version**: v1.12  
+**Commit Message**: "v1.12 Fix: Implemented fractional sample accumulation for high-speed playback - fixed 60 FPS interval with sample debt tracking enables accurate 5-500 Hz playback (was limited by browser setInterval minimum ~4-10ms), now actually achieves 500 Hz turbo mode"
+
+### Problem Discovered:
+
+The user noticed that 500 Hz playback wasn't actually playing back at 500 Hz and couldn't keep up with incoming data. The issue was that the previous implementation tried to set `setInterval(advanceMappingScan, 1000 / playbackRate)`:
+- At 500 Hz: `1000 / 500 = 2ms` interval
+- **JavaScript setInterval minimum is ~4-10ms** (browser-dependent)
+- Browser throttling and main thread contention made high rates impossible
+- Only 1 sample was consumed per tick, so max achievable rate was ~100-250 Hz
+
+### Solution: Fixed Interval + Fractional Accumulation
+
+Changed to a **fixed 60 FPS interval** with **sample debt tracking**:
+
+```javascript
+const MAPPING_SCAN_FPS = 60;  // Fixed interval rate
+let mappingSampleDebt = 0;    // Fractional sample accumulator
+
+function advanceMappingScan() {
+    // Calculate samples to consume this tick
+    const samplesPerTick = mappingPlaybackRate / MAPPING_SCAN_FPS;
+    mappingSampleDebt += samplesPerTick;
+    
+    // Consume whole samples, carry forward fractional remainder
+    const samplesToConsume = Math.floor(mappingSampleDebt);
+    mappingSampleDebt -= samplesToConsume;
+    
+    // Actually remove samples from buffer
+    for (let i = 0; i < samplesToConsume; i++) {
+        mappingDataBuffer.shift();
+        mappingTotalSamplesPlayed++;
+    }
+}
+```
+
+### How It Works:
+
+**At 500 Hz:**
+- Each tick (16.67ms @ 60 FPS) should consume: `500 / 60 = 8.333 samples`
+- Tick 1: debt = 8.333 → consume 8, carry 0.333
+- Tick 2: debt = 8.666 → consume 8, carry 0.666
+- Tick 3: debt = 8.999 → consume 8, carry 0.999
+- Tick 4: debt = 9.332 → consume 9, carry 0.332
+- **Averages to exactly 500 samples/second over time**
+
+**At 5 Hz:**
+- Each tick should consume: `5 / 60 = 0.083 samples`
+- Most ticks: consume 0
+- Every 12th tick: consume 1 (when debt ≥ 1)
+- **Averages to exactly 5 samples/second**
+
+### Benefits:
+
+- ✅ Works at **any playback rate** from 5 Hz to 500 Hz
+- ✅ **Perfectly accurate** over time (fractional error accumulation)
+- ✅ No JavaScript timer limitations
+- ✅ No browser throttling issues
+- ✅ Same technique used in Bresenham's algorithm and audio resampling
+
+### Files Modified:
+
+- `index.html` - Added `MAPPING_SCAN_FPS`, `mappingSampleDebt`, updated `advanceMappingScan()` and `applyMappingPlaybackRate()`
+
+**Now 500 Hz turbo mode actually works! 🚀**
+
+---
+

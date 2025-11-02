@@ -2685,6 +2685,8 @@
         let mappingPlaybackRate = 100;  // Hz (playback speed - adjustable)
         let mappingIsPaused = false;
         let mappingScanInterval = null;
+        let mappingSampleDebt = 0;  // Track fractional samples for high-speed playback
+        const MAPPING_SCAN_FPS = 60;  // Fixed interval rate (60 FPS)
         let mappingLastChunkId = -1;
         let mappingLastChunkTime = null;
         let mappingSystemStarted = false;
@@ -2824,7 +2826,8 @@
             
             // Start scanning (consuming samples) at playback rate
             if (!mappingScanInterval) {
-                mappingScanInterval = setInterval(advanceMappingScan, 1000 / mappingPlaybackRate);
+                // Use fixed 60 FPS interval - sample consumption is handled by advanceMappingScan()
+                mappingScanInterval = setInterval(advanceMappingScan, 1000 / MAPPING_SCAN_FPS);
             }
             
             // Enable adaptive mode by default
@@ -2990,8 +2993,21 @@
         // Advance playback by consuming data (EXACT copy from simple seed sonif)
         function advanceMappingScan() {
             if (!mappingIsPaused && mappingDataBuffer.length > 0) {
-                mappingDataBuffer.shift();  // Remove first element
-                mappingTotalSamplesPlayed++;
+                // Calculate how many samples to consume this tick
+                // At 60 FPS, each tick should consume: playbackRate / 60 samples
+                const samplesPerTick = mappingPlaybackRate / MAPPING_SCAN_FPS;
+                mappingSampleDebt += samplesPerTick;
+                
+                // Consume whole samples (handle fractional accumulation)
+                const samplesToConsume = Math.floor(mappingSampleDebt);
+                mappingSampleDebt -= samplesToConsume;
+                
+                // Remove samples from buffer (don't exceed buffer size)
+                const actualConsumed = Math.min(samplesToConsume, mappingDataBuffer.length);
+                for (let i = 0; i < actualConsumed; i++) {
+                    mappingDataBuffer.shift();
+                    mappingTotalSamplesPlayed++;
+                }
             }
         }
         
@@ -3494,11 +3510,8 @@
             document.getElementById('mapping-playback-rate-slider').value = mappingPlaybackRate;
             document.getElementById('mapping-playback-rate-display').textContent = mappingPlaybackRate + ' Hz';
             
-            // Restart scan interval with new rate
-            if (mappingScanInterval) {
-                clearInterval(mappingScanInterval);
-            }
-            mappingScanInterval = setInterval(advanceMappingScan, 1000 / mappingPlaybackRate);
+            // No need to restart interval - it's fixed at 60 FPS, sample consumption adjusts automatically
+            // (The advanceMappingScan function consumes mappingPlaybackRate/60 samples per tick)
         }
         
         // Update playback rate (manual slider control)

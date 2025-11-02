@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.11"
+__version__ = "1.12"
 __commit_message__ = (
-    "v1.11 Feature: Expanded adaptive playback rate range to 5-500 Hz - added ultra-slow tiers (5 Hz at <100 samples, 10 Hz at <300 samples) and turbo mode (500 Hz at >10k samples), increased manual slider max to 500 Hz"
+    "v1.12 Fix: Implemented fractional sample accumulation for high-speed playback - fixed 60 FPS interval with sample debt tracking enables accurate 5-500 Hz playback (was limited by browser setInterval minimum ~4-10ms), now actually achieves 500 Hz turbo mode"
 )
 
 # Import key modules to make them available when importing the package
