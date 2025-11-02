@@ -2787,30 +2787,35 @@
         async function detectBackend() {
             if (backendDetected) return;
             
+            console.log('🔍 DETECTING BACKEND...');
+            
             // Try localhost first
+            console.log('   Trying LOCALHOST (http://localhost:8889)...');
             try {
                 const response = await fetch('http://localhost:8889/api/get_chunk_id', { signal: AbortSignal.timeout(1000) });
                 if (response.ok) {
                     mappingBackendUrl = 'http://localhost:8889/api';
-                    console.log('🔍 Backend detected: LOCALHOST (http://localhost:8889)');
+                    console.log('✅ ✅ ✅ CONNECTED TO LOCALHOST ✅ ✅ ✅');
                     backendDetected = true;
                     return;
                 }
             } catch (e) {
-                // Localhost failed, try Render
+                console.log('   ❌ Localhost not available');
             }
             
             // Try Render backend
+            console.log('   Trying RENDER (https://volcano-audio.onrender.com)...');
             try {
                 const response = await fetch('https://volcano-audio.onrender.com/api/get_chunk_id', { signal: AbortSignal.timeout(2000) });
                 if (response.ok) {
                     mappingBackendUrl = 'https://volcano-audio.onrender.com/api';
-                    console.log('🔍 Backend detected: RENDER (https://volcano-audio.onrender.com)');
+                    console.log('🌐 🌐 🌐 CONNECTED TO RENDER 🌐 🌐 🌐');
+                    console.log('📡 Using online backend: https://volcano-audio.onrender.com');
                     backendDetected = true;
                     return;
                 }
             } catch (e) {
-                // Both failed
+                console.log('   ❌ Render not available');
             }
             
             console.warn('⚠️ No backend detected - using localhost as fallback');
@@ -2833,6 +2838,8 @@
                 
                 // Only fetch full chunk if ID changed
                 if (data.chunk_id && data.chunk_id !== mappingLastChunkId) {
+                    const backend = mappingBackendUrl.includes('localhost') ? 'LOCALHOST' : 'RENDER';
+                    console.log(`📦 New chunk detected (${data.chunk_id}) from ${backend} - fetching...`);
                     await fetchMappingChunk();
                 }
             } catch (error) {
@@ -2898,7 +2905,8 @@
                     
                     const min = Math.min(...deduplicatedSamples);
                     const max = Math.max(...deduplicatedSamples);
-                    console.log(`📦 NEW CHUNK ${mappingChunkCount} (ID: ${data.chunk_id}): ${deduplicatedSamples.length} samples | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+                    const backend = mappingBackendUrl.includes('localhost') ? '🏠 LOCALHOST' : '🌐 RENDER';
+                    console.log(`📦 NEW CHUNK ${mappingChunkCount} (ID: ${data.chunk_id}) from ${backend}: ${deduplicatedSamples.length} samples | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
                     
                     if (data.sample_rate) {
                         mappingSampleRate = data.sample_rate;

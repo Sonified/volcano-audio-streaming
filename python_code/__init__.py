@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.08"
+__version__ = "1.09"
 __commit_message__ = (
-    "v1.08 Feature: Integrated on-demand SeedLink chunk forwarding to Render backend - auto-start/shutdown, efficient polling (1 req/sec ID check + full chunk on change), connection status indicators, 1s chunk finalization, backend auto-detects localhost vs Render"
+    "v1.09 Refactor: Migrated SeedLink from threads to KILLABLE subprocesses - clean shutdown with no reconnection spam, unbuffered real-time logging, SIGTERM/SIGKILL termination, subprocess architecture for both local and Render backends"
 )
 
 # Import key modules to make them available when importing the package

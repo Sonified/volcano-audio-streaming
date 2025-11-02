@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify, send_file, Response, stream_with_context
 from obspy.clients.fdsn import Client
-from obspy.clients.seedlink import EasySeedLinkClient
 from obspy import UTCDateTime
 import numpy as np
 from scipy.io import wavfile
@@ -35,186 +34,104 @@ def add_cors_headers(response):
     return response
 
 # ========================================
-# SEEDLINK CHUNK FORWARDER (ON-DEMAND)
+# SEEDLINK CHUNK FORWARDER (ON-DEMAND) - SUBPROCESS MODE
 # ========================================
 
-class ChunkForwarder(EasySeedLinkClient):
-    """SeedLink client that accumulates and forwards chunks"""
-    def __init__(self):
-        super().__init__('rtserve.iris.washington.edu:18000')
-        self.should_stop = False  # Flag to stop the run loop
-        
-        self.accumulated_chunk = []
-        self.current_chunk_id = 0
-        self.latest_chunk = []
-        self.chunk_id = 0
-        self.sample_rate = 100
-        self.last_trace_time = None
-        self.chunk_timeout = 1.0  # 1 second gap to finalize chunk
-        
-        # Start background gap monitor
-        self.monitor_thread = threading.Thread(target=self._monitor_gaps, daemon=True)
-        self.monitor_thread.start()
-        
-        # Connection info
-        self.network = ''
-        self.station = ''
-        self.channel = ''
-        self.connected = False
-        self.connection_established = False
-        
-        print("[CHUNK FORWARDER] Initialized (dormant)")
-    
-    def on_connect(self):
-        self.connection_established = True
-        print("[CHUNK FORWARDER] ✓ Connected to SeedLink server")
-    
-    def on_error(self, error):
-        print(f"[CHUNK FORWARDER ERROR] {error}")
-    
-    def _monitor_gaps(self):
-        """Background thread that actively monitors for gaps and finalizes chunks"""
-        while True:
-            time.sleep(0.1)  # Check every 100ms
-            
-            if self.last_trace_time is not None and len(self.accumulated_chunk) > 0:
-                gap = time.time() - self.last_trace_time
-                
-                if gap > self.chunk_timeout:
-                    # Gap detected! Finalize chunk
-                    self.latest_chunk = self.accumulated_chunk.copy()
-                    self.chunk_id += 1
-                    self.current_chunk_id += 1
-                    print(f"[CHUNK COMPLETE {self.chunk_id:04d}] Finalized: {len(self.latest_chunk)} samples (gap: {gap:.1f}s)")
-                    self.accumulated_chunk = []
-                    self.last_trace_time = None
-    
-    def on_terminate(self):
-        """Override to prevent auto-reconnect on shutdown"""
-        global shutdown_requested
-        if self.should_stop or shutdown_requested:
-            print("[SEEDLINK] on_terminate called - stopping (no reconnect)")
-            return
-        super().on_terminate()
-    
-    def on_data(self, trace):
-        """Called when new data arrives from IRIS"""
-        global shutdown_requested
-        
-        # Check if we should stop
-        if self.should_stop or shutdown_requested:
-            print("[SEEDLINK] Stop requested during on_data - exiting")
-            self.close()
-            return
-        
-        samples = trace.data.astype(np.float32).tolist()
-        
-        # Update connection info
-        self.network = trace.stats.network
-        self.station = trace.stats.station
-        self.channel = trace.stats.channel
-        self.sample_rate = int(trace.stats.sampling_rate)
-        self.connected = True
-        
-        # Add samples to accumulation buffer
-        self.accumulated_chunk.extend(samples)
-        self.last_trace_time = time.time()
-        
-        print(f"[TRACE] {len(samples)} samples | Accumulated: {len(self.accumulated_chunk)} total")
+import subprocess
 
-# Global SeedLink state - ON-DEMAND
-seedlink_forwarder = None
-seedlink_thread = None
+CHUNK_FILE = '/tmp/seedlink_chunk.json'
+STATUS_FILE = '/tmp/seedlink_status.json'
+SUBPROCESS_SCRIPT = os.path.join(os.path.dirname(__file__), 'seedlink_subprocess.py')
+
+# Global SeedLink state - ON-DEMAND SUBPROCESS
+seedlink_process = None
 seedlink_active = False
 last_request_time = None
-shutdown_requested = False
+last_chunk_id = None
 
 def start_seedlink():
-    """Start SeedLink connection in background thread"""
-    global seedlink_forwarder, seedlink_thread, seedlink_active, shutdown_requested
+    """Start SeedLink subprocess"""
+    global seedlink_process, seedlink_active
     
     if seedlink_active:
         print("[SEEDLINK] Already active")
         return
     
-    print("[SEEDLINK] 🚀 STARTING on-demand...")
-    
-    seedlink_forwarder = ChunkForwarder()
-    seedlink_forwarder.should_stop = False
-    shutdown_requested = False
+    print("[SEEDLINK] 🚀 STARTING subprocess...")
     
     try:
-        seedlink_forwarder.select_stream('HV', 'NPOC', 'HHZ')
-        print("[SEEDLINK] ✓ Stream selected: HV.NPOC.HHZ")
-    except Exception as e:
-        print(f"[SEEDLINK ERROR] Failed to select stream: {e}")
-        return
-    
-    def run_seedlink():
-        global seedlink_active
+        # Start the subprocess with UNBUFFERED output (-u flag)
+        seedlink_process = subprocess.Popen(
+            ['python', '-u', SUBPROCESS_SCRIPT],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1  # Line buffered
+        )
+        
         seedlink_active = True
-        print("[SEEDLINK] ✓ Active - receiving data...")
-        try:
-            # run() blocks until close() is called - don't use a while loop!
-            seedlink_forwarder.run()
-        except Exception as e:
-            if not shutdown_requested:
-                print(f"[SEEDLINK ERROR] {e}")
-        finally:
-            seedlink_active = False
-            print("[SEEDLINK] Thread exiting - connection closed")
-    
-    seedlink_thread = threading.Thread(target=run_seedlink, daemon=True)
-    seedlink_thread.start()
-    print("[SEEDLINK] ✅ Started")
+        
+        # Start thread to monitor subprocess output
+        def monitor_output():
+            for line in seedlink_process.stdout:
+                print(f"[SUBPROCESS OUTPUT] {line.strip()}")
+        
+        output_thread = threading.Thread(target=monitor_output, daemon=True)
+        output_thread.start()
+        
+        print(f"[SEEDLINK] ✅ Started successfully (PID: {seedlink_process.pid})")
+        
+    except Exception as e:
+        print(f"[SEEDLINK] ❌ Failed to start: {e}")
+        seedlink_active = False
 
 def stop_seedlink():
-    """Stop SeedLink connection"""
-    global seedlink_forwarder, seedlink_active, shutdown_requested, seedlink_thread
+    """Stop SeedLink subprocess - KILL IT!"""
+    global seedlink_process, seedlink_active
     
     if not seedlink_active:
         return
     
     print("[SEEDLINK] 🛑 SHUTTING DOWN...")
-    shutdown_requested = True
-    seedlink_active = False  # Set this FIRST to stop the thread check
+    seedlink_active = False
     
-    if seedlink_forwarder:
-        # Set stop flag BEFORE calling close
-        seedlink_forwarder.should_stop = True
+    if seedlink_process:
+        print(f"[SEEDLINK] Terminating process (PID: {seedlink_process.pid})...")
         
         try:
-            seedlink_forwarder.close()
-            print("[SEEDLINK] ✓ Close() called on forwarder")
+            # Try graceful SIGTERM first
+            seedlink_process.terminate()
+            
+            # Wait up to 2 seconds for graceful shutdown
+            try:
+                seedlink_process.wait(timeout=2.0)
+                print("[SEEDLINK] ✓ Process terminated gracefully")
+            except subprocess.TimeoutExpired:
+                # Force kill if still alive
+                print("[SEEDLINK] Process didn't die - FORCE KILLING...")
+                seedlink_process.kill()
+                seedlink_process.wait()
+                print("[SEEDLINK] ✓ Process KILLED")
+                
         except Exception as e:
-            print(f"[SEEDLINK] Error during close: {e}")
-        seedlink_forwarder = None
+            print(f"[SEEDLINK] Error during shutdown: {e}")
+        
+        seedlink_process = None
     
-    # Give thread a moment to finish
-    if seedlink_thread and seedlink_thread.is_alive():
-        seedlink_thread.join(timeout=2.0)
-        if seedlink_thread.is_alive():
-            print("[SEEDLINK] ⚠️ Thread still alive after timeout")
-        else:
-            print("[SEEDLINK] ✓ Thread terminated")
-    
-    print("[SEEDLINK] ✅ Shut down")
+    print("[SEEDLINK] ✅ Shut down successfully")
 
 def auto_shutdown_monitor():
-    """Background monitor - shuts down SeedLink after 10s of no requests"""
+    """Background thread that monitors inactivity and triggers shutdown"""
     global last_request_time, seedlink_active
     
     while True:
-        time.sleep(2)
+        time.sleep(1)  # Check every second
         
-        if seedlink_active:
-            if last_request_time is None:
-                idle_time = 999
-            else:
-                idle_time = time.time() - last_request_time
+        if seedlink_active and last_request_time:
+            idle_seconds = time.time() - last_request_time
             
-            if idle_time > 60:  # 60 seconds for production
-                print(f"[MONITOR] ⏱️ No requests for {idle_time:.0f}s - shutting down")
+            if idle_seconds > 60:  # 60 second timeout for production
+                print(f"[MONITOR] ⏱️ No requests for {idle_seconds:.0f}s - triggering shutdown")
                 stop_seedlink()
                 last_request_time = None
 
@@ -224,85 +141,73 @@ monitor_thread.start()
 
 @app.route('/api/get_chunk_id')
 def get_chunk_id():
-    """Lightweight endpoint - returns only chunk ID"""
-    global last_request_time
+    """Lightweight endpoint - just return the chunk ID"""
+    global last_request_time, last_chunk_id
     
     last_request_time = time.time()
     
+    # Start SeedLink if dormant
     if not seedlink_active:
         start_seedlink()
-        time.sleep(0.5)
     
-    if seedlink_forwarder:
-        return jsonify({'chunk_id': seedlink_forwarder.current_chunk_id})
-    return jsonify({'chunk_id': 0})
+    # Read current chunk ID from file
+    try:
+        if os.path.exists(CHUNK_FILE):
+            with open(CHUNK_FILE, 'r') as f:
+                data = json.load(f)
+                return jsonify({'chunk_id': data.get('chunk_id')})
+    except:
+        pass
+    
+    return jsonify({'chunk_id': None})
 
 @app.route('/api/get_chunk')
 def get_chunk():
-    """Get the latest chunk from SeedLink"""
-    global last_request_time
+    """Full chunk endpoint - return all data"""
+    global last_request_time, last_chunk_id
     
     last_request_time = time.time()
     
+    # Start SeedLink if dormant
     if not seedlink_active:
         start_seedlink()
-        time.sleep(0.5)
     
-    if seedlink_forwarder:
-        return jsonify({
-            'samples': seedlink_forwarder.latest_chunk,
-            'sample_count': len(seedlink_forwarder.latest_chunk),
-            'sample_rate': seedlink_forwarder.sample_rate,
-            'chunk_id': seedlink_forwarder.current_chunk_id,
-            'network': seedlink_forwarder.network,
-            'station': seedlink_forwarder.station,
-            'channel': seedlink_forwarder.channel,
-            'connected': seedlink_forwarder.connected
-        })
-    return jsonify({
-        'samples': [],
-        'sample_count': 0,
-        'sample_rate': 100,
-        'chunk_id': 0,
-        'network': '',
-        'station': '',
-        'channel': '',
-        'connected': False
-    })
+    # Read chunk from file
+    try:
+        if os.path.exists(CHUNK_FILE):
+            with open(CHUNK_FILE, 'r') as f:
+                data = json.load(f)
+                last_chunk_id = data.get('chunk_id')
+                return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    return jsonify({'error': 'No chunk available'}), 404
 
 @app.route('/api/seedlink_status')
 def get_seedlink_status():
-    """Get SeedLink connection status"""
+    """Return current SeedLink status"""
     global last_request_time
     
-    idle_time = None
-    if last_request_time:
-        idle_time = time.time() - last_request_time
-    
-    if seedlink_forwarder:
-        return jsonify({
-            'connected': seedlink_forwarder.connected,
-            'active': seedlink_active,
-            'network': seedlink_forwarder.network,
-            'station': seedlink_forwarder.station,
-            'channel': seedlink_forwarder.channel,
-            'chunks_received': seedlink_forwarder.chunk_id,
-            'sample_rate': seedlink_forwarder.sample_rate,
-            'idle_seconds': idle_time
-        })
-    return jsonify({
-        'connected': False,
+    status_data = {
         'active': seedlink_active,
-        'network': '',
-        'station': '',
-        'channel': '',
-        'chunks_received': 0,
-        'sample_rate': 100,
-        'idle_seconds': idle_time
-    })
+        'process_pid': seedlink_process.pid if seedlink_process else None,
+        'idle_seconds': time.time() - last_request_time if last_request_time else None
+    }
+    
+    # Try to read subprocess status
+    try:
+        if os.path.exists(STATUS_FILE):
+            with open(STATUS_FILE, 'r') as f:
+                subprocess_status = json.load(f)
+                status_data.update(subprocess_status)
+    except:
+        pass
+    
+    return jsonify(status_data)
 
 # ========================================
-# END SEEDLINK CHUNK FORWARDER
+# END SEEDLINK CHUNK FORWARDER (SUBPROCESS MODE)
 # ========================================
 
 # Configuration

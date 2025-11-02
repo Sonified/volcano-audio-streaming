@@ -73,12 +73,81 @@
 - Thread warning "Thread still alive after timeout" appears during shutdown (harmless - thread is idle)
 - ObsPy SeedLink client sometimes prints "reconnecting" message during shutdown (cosmetic only, no actual reconnection occurs)
 
+### Major Refactor: Subprocess Architecture (v1.09)
+
+**Problem Discovered:**
+After implementing the threaded approach (v1.08), we discovered that ObsPy's `EasySeedLinkClient` was NOT designed to be stopped. When calling `close()` or even `conn.terminate()`, the client would continue attempting reconnections indefinitely, spamming logs with "socket read error: timed out, reconnecting in 30s" messages. Python threads cannot be forcefully killed, making it impossible to achieve a clean shutdown.
+
+**Solution: Subprocess Architecture**
+
+Completely migrated from threading to subprocess-based architecture:
+
+1. **Created `seedlink_subprocess.py`**
+   - Standalone Python script that runs the SeedLink client
+   - Handles SIGTERM/SIGINT signals for clean exit
+   - Writes chunks to `/tmp/seedlink_chunk.json`
+   - Writes status to `/tmp/seedlink_status.json`
+   - Uses IPC (inter-process communication) via JSON files
+
+2. **Refactored Flask Server**
+   - Spawns subprocess with `subprocess.Popen()`
+   - Uses `-u` flag for unbuffered output (real-time logging!)
+   - Monitors subprocess stdout in separate thread
+   - Can send SIGTERM for graceful shutdown
+   - Can send SIGKILL for forced termination if needed
+   - Reads chunk data from JSON files (not shared memory)
+
+3. **Clean Shutdown Achieved**
+   ```
+   [SEEDLINK] 🛑 SHUTTING DOWN (idle timeout)...
+   [SEEDLINK] Terminating process (PID: 87810)...
+   [SUBPROCESS OUTPUT] [SUBPROCESS] 🛑 Received kill signal - exiting immediately
+   [SUBPROCESS OUTPUT] [SUBPROCESS] Process exiting
+   [SEEDLINK] ✓ Process terminated gracefully
+   [SEEDLINK] ✅ Shut down successfully
+   ```
+   **NO reconnection spam! Clean exit every time!**
+
+4. **Applied to Both Backends**
+   - Local: `SeedLink/chunk_forwarder.py` + `SeedLink/seedlink_subprocess.py`
+   - Render: `backend/main.py` + `backend/seedlink_subprocess.py`
+   - Identical architecture for consistency
+
+**Technical Details:**
+
+- **Python `-u` flag**: Unbuffered stdout/stderr for real-time log visibility
+- **Signal handlers**: `signal.signal(signal.SIGTERM, handler)` for clean exit
+- **Process termination**: `process.terminate()` → wait 2s → `process.kill()` if still alive
+- **Daemon threads**: Output monitor thread doesn't block process exit
+- **IPC via files**: Simple and reliable, no shared memory complexity
+
+**Files Modified:**
+
+- `SeedLink/chunk_forwarder.py` - Converted to subprocess spawner
+- `SeedLink/seedlink_subprocess.py` - NEW standalone client
+- `backend/main.py` - Converted to subprocess spawner  
+- `backend/seedlink_subprocess.py` - NEW standalone client
+- `index.html` - Added backend detection logging
+- `python_code/__init__.py` - Version bump to 1.09
+
+**Lessons Learned:**
+
+1. ObsPy's `EasySeedLinkClient` is designed for 24/7 monitoring stations, not on-demand operation
+2. Python threads cannot be forcefully killed - use subprocesses when you need true process control
+3. Unbuffered output (`-u` flag) is critical for real-time debugging of subprocesses
+4. Signal handlers enable graceful subprocess termination
+5. Sometimes the "complex" solution (subprocesses) is actually simpler than fighting library limitations
+
+**Version**: v1.09  
+**Commit**: [pending]  
+**Commit Message**: "v1.09 Refactor: Migrated SeedLink from threads to KILLABLE subprocesses - clean shutdown with no reconnection spam, unbuffered real-time logging, SIGTERM/SIGKILL termination, subprocess architecture for both local and Render backends"
+
 ### Next Steps:
 
-- Deploy to Render
-- Test online version with backend auto-detection
-- Monitor Render costs for SeedLink processing
-- Consider increasing timeout to 120s if needed for longer sessions
+- Deploy v1.09 to Render
+- Test online version with subprocess architecture
+- Monitor Render logs for clean shutdown behavior
+- Verify no zombie processes on Render
 
 ---
 
