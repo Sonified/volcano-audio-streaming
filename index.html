@@ -584,6 +584,17 @@
             display: inline-block;
             animation: magmaGlow 6s ease-in-out infinite reverse;
         }
+        
+        @keyframes pulse-mute {
+            0%, 100% { 
+                opacity: 0.8; 
+                text-shadow: 0 0 5px rgba(200, 50, 50, 0.5); 
+            }
+            50% { 
+                opacity: 0.5; 
+                text-shadow: 0 0 8px rgba(200, 50, 50, 0.6); 
+            }
+        }
     </style>
 </head>
 <body>
@@ -687,6 +698,10 @@
         <h2 class="magma-text" style="text-align: center; margin-top: -15px; margin-bottom: 20px; font-size: 1.8em;">Live Seismic Data From <span id="volcanoName">Mt. Kīlauea</span></h2>
         
         <div class="panel" style="background: linear-gradient(135deg, rgba(10, 2, 2, 0.95) 0%, rgba(50, 15, 15, 0.95) 100%); border: 1px solid rgba(200, 100, 100, 0.3); position: relative;">
+            <!-- Mute Indicator (Enter key) -->
+            <div id="muteIndicator" style="display: none; position: absolute; top: 30px; right: 40px; color: #cc4444; font-weight: bold; font-size: 22px; text-shadow: 0 0 5px rgba(200, 50, 50, 0.5); z-index: 1000; animation: pulse-mute 0.8s ease-in-out infinite;">
+                MUTED
+            </div>
             <canvas id="waveform" width="1200" height="135"></canvas>
             <canvas id="spectrogram" width="1200" height="550"></canvas>
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 8px 0; padding-left: 40px; padding-right: 40px;">
@@ -969,6 +984,8 @@
         let workletNode = null;
         let analyserNode = null;
         let gainNode = null;
+        let masterMuteGain = null;  // Master mute control
+        let isMuted = false;
         let isPlaying = false;
         let isPaused = false;
         let isLooping = false;
@@ -1209,9 +1226,14 @@
             gainNode = audioContext.createGain();
             gainNode.gain.value = 0.0001; // Start at near-zero for fade-in
             
+            // Create master mute gain node (for Enter key mute toggle)
+            masterMuteGain = audioContext.createGain();
+            masterMuteGain.gain.value = 1.0; // Start unmuted
+            
             workletNode.connect(gainNode);
             gainNode.connect(analyserNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(masterMuteGain);  // Route through mute control
+            masterMuteGain.connect(audioContext.destination);
             
             workletNode.port.onmessage = (event) => {
                 const { type, bufferSize, samplesConsumed, totalSamples } = event.data;
@@ -1436,6 +1458,18 @@
                     if (gainNode) {
                         gainNode.disconnect();
                         gainNode = null;
+                    }
+                    
+                    if (masterMuteGain) {
+                        masterMuteGain.disconnect();
+                        masterMuteGain = null;
+                    }
+                    
+                    // Reset mute state
+                    isMuted = false;
+                    const muteIndicator = document.getElementById('muteIndicator');
+                    if (muteIndicator) {
+                        muteIndicator.style.display = 'none';
                     }
                     
                     // Clear old data
@@ -2414,6 +2448,39 @@
             }
             document.getElementById('spectrogramScrollSpeedValue').textContent = displayText;
         }
+        
+        // Master mute toggle (Enter key)
+        function toggleMute() {
+            if (!masterMuteGain || !audioContext) {
+                console.log('⚠️ Audio system not initialized - cannot toggle mute');
+                return;
+            }
+            
+            isMuted = !isMuted;
+            const targetGain = isMuted ? 0 : 1;
+            const fadeTime = 1.0; // 1 second fade
+            
+            // Cancel any scheduled changes and fade to target
+            masterMuteGain.gain.cancelScheduledValues(audioContext.currentTime);
+            masterMuteGain.gain.setValueAtTime(masterMuteGain.gain.value, audioContext.currentTime);
+            masterMuteGain.gain.linearRampToValueAtTime(targetGain, audioContext.currentTime + fadeTime);
+            
+            // Update mute indicator
+            const muteIndicator = document.getElementById('muteIndicator');
+            if (muteIndicator) {
+                muteIndicator.style.display = isMuted ? 'block' : 'none';
+            }
+            
+            console.log(isMuted ? '🔇 MUTED' : '🔊 UNMUTED');
+        }
+        
+        // Keyboard listener for Enter key mute toggle
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.repeat) {
+                event.preventDefault();
+                toggleMute();
+            }
+        });
         
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', () => {

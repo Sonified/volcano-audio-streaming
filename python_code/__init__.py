@@ -1,7 +1,7 @@
 # This file makes the python_code directory a Python package
-__version__ = "1.09"
+__version__ = "1.10"
 __commit_message__ = (
-    "v1.09 Refactor: Migrated SeedLink from threads to KILLABLE subprocesses - clean shutdown with no reconnection spam, unbuffered real-time logging, SIGTERM/SIGKILL termination, subprocess architecture for both local and Render backends"
+    "v1.10 Feature: Added Enter key mute toggle with 1s fade in/out, subtle MUTED indicator on visualization panel, master gain control for silent audio pausing during experience transitions"
 )
 
 # Import key modules to make them available when importing the package
