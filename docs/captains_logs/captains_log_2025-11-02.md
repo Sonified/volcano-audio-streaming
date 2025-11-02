@@ -457,7 +457,7 @@ setTimeout(() => { /* disconnect old nodes */ }, 1100);
 ## v1.15 - Loop/Finish Fade Fixes
 
 **Version**: v1.15  
-**Commit**: [pending]  
+**Commit**: 6d5b30d  
 **Commit Message**: "v1.15 Fix: Loop/finish fades (separate gain stage + early fade-out) - created separate liveAmplitudeGain stage to prevent Live Amplitude from canceling loop fades, fixed playback speed race condition by setting speed before sending data to worklet, fixed fade-out clicks by using loop-soon warning to start fade early while audio still playing, added speed-adjusted fade duration that scales inversely with playback speed, comprehensive fade logging for debugging, adjusted Gain control spacing"
 
 ### Problems Discovered:

@@ -764,6 +764,11 @@
                             <span id="spectrogramGainValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
                         </div>
                     </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="spectrogramAutoScale" checked onchange="toggleSpectrogramAutoScale()" style="width: 18px; height: 18px; cursor: pointer; accent-color: #cc3333;">
+                        <label for="spectrogramAutoScale" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer;">Auto Scale</label>
+                    </div>
                 </div>
                 
                 <!-- Right: Live Amplitude and Amount -->
@@ -1055,6 +1060,7 @@
         let spectrogramInitialized = false; // Flag to track if spectrogram has been cleared for first time
         let spectrogramScrollSpeed = 1.0; // Scroll speed multiplier (default 1.0x)
         let spectrogramGain = 1.0; // Visual gain multiplier (default 1.0x, does not affect audio)
+        let spectrogramAutoScale = true; // Auto-scale frequency axis based on playback speed (default enabled)
         let spectrogramFrameCounter = 0; // Frame counter for controlling scroll speed
         let visualizationStarted = false; // Flag to prevent multiple visualization loops
         let currentMetadata = null; // Store metadata for duration calculation
@@ -2494,6 +2500,11 @@
                 return;
             }
             
+            // Calculate auto-scale factor based on playback speed
+            // When speed < 1.0x, frequency content is compressed, so stretch vertically
+            // scaleFactor = 1 / min(1.0, speed) ensures we stretch when speed < 1.0
+            const autoScaleFactor = spectrogramAutoScale ? (1 / Math.min(1.0, currentPlaybackRate)) : 1.0;
+            
             if (actualScrollSpeed < 1.0) {
                 // Slow speed: skip frames
                 spectrogramFrameCounter++;
@@ -2504,9 +2515,21 @@
                     ctx.drawImage(canvas, -1, 0);
                     ctx.clearRect(width - 1, 0, 1, height);
                     
-                    // Draw new column
+                    // Draw new column with auto-scaling
                     for (let i = 0; i < bufferLength; i++) {
-                        const value = dataArray[i] * spectrogramGain; // Apply visual gain
+                        // Apply auto-scale: map pixel position to frequency bin
+                        const binIndex = i / autoScaleFactor;
+                        
+                        // Skip if scaled bin exceeds buffer length
+                        if (binIndex >= bufferLength) continue;
+                        
+                        // Interpolate between bins for smooth scaling
+                        const binFloor = Math.floor(binIndex);
+                        const binFrac = binIndex - binFloor;
+                        const value1 = dataArray[binFloor] * spectrogramGain;
+                        const value2 = (binFloor + 1 < bufferLength) ? dataArray[binFloor + 1] * spectrogramGain : value1;
+                        const value = value1 * (1 - binFrac) + value2 * binFrac;
+                        
                         const percent = Math.min(value / 255, 1.0); // Clamp to 0-1
                         const hue = percent * 60;
                         const saturation = 100;
@@ -2526,10 +2549,22 @@
                 // Clear the rightmost columns
                 ctx.clearRect(width - scrollPixels, 0, scrollPixels, height);
                 
-                // Draw new columns on the right
+                // Draw new columns on the right with auto-scaling
                 for (let p = 0; p < scrollPixels; p++) {
                     for (let i = 0; i < bufferLength; i++) {
-                        const value = dataArray[i] * spectrogramGain; // Apply visual gain
+                        // Apply auto-scale: map pixel position to frequency bin
+                        const binIndex = i / autoScaleFactor;
+                        
+                        // Skip if scaled bin exceeds buffer length
+                        if (binIndex >= bufferLength) continue;
+                        
+                        // Interpolate between bins for smooth scaling
+                        const binFloor = Math.floor(binIndex);
+                        const binFrac = binIndex - binFloor;
+                        const value1 = dataArray[binFloor] * spectrogramGain;
+                        const value2 = (binFloor + 1 < bufferLength) ? dataArray[binFloor + 1] * spectrogramGain : value1;
+                        const value = value1 * (1 - binFrac) + value2 * binFrac;
+                        
                         const percent = Math.min(value / 255, 1.0); // Clamp to 0-1
                         const hue = percent * 60;
                         const saturation = 100;
@@ -2627,6 +2662,13 @@
             
             document.getElementById('spectrogramGainValue').textContent = displayText;
             console.log(`📊 Spectrogram gain: ${displayText}`);
+        }
+        
+        // Toggle spectrogram auto-scale
+        function toggleSpectrogramAutoScale() {
+            const checkbox = document.getElementById('spectrogramAutoScale');
+            spectrogramAutoScale = checkbox.checked;
+            console.log(`📊 Spectrogram auto-scale: ${spectrogramAutoScale ? 'ENABLED' : 'DISABLED'}`);
         }
         
         // Master mute toggle (Enter key)
