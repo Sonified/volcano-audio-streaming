@@ -493,3 +493,62 @@ Updated `dashboard_simple_seed_sonif.html` to load with adaptive playback rate *
 
 ---
 
+## Parameter Mapping Sonification Integration into index.html
+
+### Changes Made:
+
+Integrated the complete Parameter Mapping Sonification system from `dashboard_simple_seed_sonif.html` into `index.html`:
+
+1. **Stats Panel Added**
+   - Chunks Received, Total Received, Samples Remaining
+   - Playback Rate slider with Adaptive toggle (enabled by default)
+   - Time Since Chunk display
+
+2. **Complete Data Buffer Management**
+   - 50k-sample bounded buffer
+   - Chunk fetching from `http://localhost:8889/api/get_chunk` every 100ms
+   - Auto-deduplication of IRIS overlap duplicates
+   - Adaptive scaling for display range
+
+3. **Adaptive Playback Rate System**
+   - Threshold-based rate adjustment (20-200 Hz)
+   - 3-second linear ramping transitions
+   - Buffer thresholds: 500/1000/1500 (slow down) and 4000/6000/8000 (speed up)
+
+4. **Parameter Mapping Visualization**
+   - **RAW Meter**: Instantaneous normalized value (red gradient)
+   - **SMOOTHED Meter**: Exponentially smoothed value (orange gradient)
+   - **AMOUNT Meter**: Range-compressed value (orange-to-red gradient)
+   - Smoothing controls: Enable/disable + 20-500ms time slider
+
+5. **Audio Synthesis**
+   - Separate sine wave oscillator (independent from main audio)
+   - Amplitude mapping (0-0.5 gain range)
+   - Frequency mapping (100-300 Hz range)
+   - Smooth fade-in/fade-out transitions (200ms exponential ramps)
+
+6. **Linked Controls**
+   - **Top Amount Slider** (spectrogram section) ↔ **Bottom Amount Slider** (parameter mapping section)
+   - **Live Amplitude Checkbox** (spectrogram) ↔ **Amount Enable Checkbox** (parameter mapping)
+   - Two-way synchronization - changes to either control update both
+
+7. **UI Improvements**
+   - Removed Local Server checkbox
+   - Added "View Active Mapping" checkbox to toggle visibility
+   - Spectrogram controls reorganized: Scroll Speed (left), Live Amplitude + Amount (right)
+   - Centered meter labels with equal spacing
+
+### Key Features:
+
+- **Independent Operation**: Mapping system runs separately from main audio playback
+- **Real-Time Analysis**: Reads from main audio analyser node for parameter mapping
+- **Complete Integration**: All algorithms from simple seed sonif preserved exactly
+- **Visual Feedback**: Three meters show RAW → SMOOTHED → AMOUNT transformation pipeline
+
+### Version
+**v1.07**  
+**Commit**: `Pending`  
+**Commit Message**: "v1.07 Feature: Integrated complete Parameter Mapping Sonification system into index.html - added stats panel, data buffer management, adaptive playback rate, RAW/SMOOTHED/AMOUNT meters, linked amount controls with Live Amplitude checkbox, fade in/out audio transitions"
+
+---
+

@@ -627,11 +627,32 @@
         <div class="panel">
             <canvas id="waveform" width="1200" height="135"></canvas>
             <canvas id="spectrogram" width="1200" height="450"></canvas>
-            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; padding: 8px 0; padding-right: 40px;">
-                <label for="spectrogramScrollSpeed" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Scroll Speed:</label>
-                <div style="position: relative; width: 150px; height: 20px;">
-                    <input type="range" id="spectrogramScrollSpeed" min="0" max="100" step="1" value="67" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram scroll speed">
-                    <span id="spectrogramScrollSpeedValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 8px 0; padding-left: 40px; padding-right: 40px;">
+                <!-- Left: Scroll Speed -->
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <label for="spectrogramScrollSpeed" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Scroll Speed:</label>
+                    <div style="position: relative; width: 150px; height: 20px;">
+                        <input type="range" id="spectrogramScrollSpeed" min="0" max="100" step="1" value="67" style="width: 150px; position: absolute; left: 0; top: 0;" title="Spectrogram scroll speed">
+                        <span id="spectrogramScrollSpeedValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">1.0x</span>
+                    </div>
+                </div>
+                
+                <!-- Right: Live Amplitude and Amount -->
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <!-- Live Amplitude Checkbox -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="liveAmplitudeCheckbox" onchange="toggleLiveAmplitude()" style="width: 18px; height: 18px; cursor: pointer; accent-color: #cc3333;">
+                        <label for="liveAmplitudeCheckbox" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer;">Live Amplitude</label>
+                    </div>
+                    
+                    <!-- Amount Slider (linked to parameter mapping) -->
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label for="topAmountSlider" style="font-size: 14px; font-weight: 700; white-space: nowrap; user-select: none; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">Amount:</label>
+                        <div style="position: relative; width: 150px; height: 20px;">
+                            <input type="range" id="topAmountSlider" min="0" max="100" step="1" value="100" style="width: 150px; position: absolute; left: 0; top: 0;" title="Amount (linked)" oninput="updateTopAmount(this.value)">
+                            <span id="topAmountValue" style="font-size: 14px; font-weight: 700; position: absolute; left: 158px; top: 50%; transform: translateY(-50%); white-space: nowrap; color: #ffe8e8; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);">100%</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -661,9 +682,193 @@
             </div>
         </div>
         
-        <div id="localServerCheckbox" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; background: rgba(0, 0, 0, 0.01); padding: 8px 12px; border-radius: 6px;">
-            <input type="checkbox" id="useLocalServer" style="width: 24px; height: 24px; cursor: pointer; opacity: 0.6;">
-            <label for="useLocalServer" style="margin-bottom: 0; cursor: pointer; font-weight: 500; font-size: 14px; color: rgba(255, 255, 255, 0.5);">Local Server</label>
+        <div id="viewMappingCheckbox" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; background: rgba(0, 0, 0, 0.01); padding: 8px 12px; border-radius: 6px;">
+            <input type="checkbox" id="viewActiveMapping" style="width: 24px; height: 24px; cursor: pointer; opacity: 0.6;" onchange="toggleMappingView()">
+            <label for="viewActiveMapping" style="margin-bottom: 0; cursor: pointer; font-weight: 500; font-size: 14px; color: rgba(255, 255, 255, 0.5);">View Active Mapping</label>
+        </div>
+        
+        <!-- Parameter Mapping Sonification Section (hidden by default) -->
+        <div id="mappingSection" style="display: none; margin-top: 20px;">
+            <!-- Stats Card -->
+            <div class="panel" style="background: linear-gradient(135deg, rgba(255, 245, 245, 0.95) 0%, rgba(240, 200, 195, 0.95) 100%);">
+                <h2 style="margin-bottom: 15px; color: #550000;">Real-Time Data Statistics</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 5px; font-weight: 600;">Chunks Received</div>
+                        <div id="mapping-chunk-count" style="color: #cc3333; font-size: 2em; font-weight: bold;">0</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 5px; font-weight: 600;">Total Received</div>
+                        <div id="mapping-total-received" style="color: #cc3333; font-size: 2em; font-weight: bold;">0</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 5px; font-weight: 600;">Samples Remaining</div>
+                        <div id="mapping-samples-remaining" style="color: #cc3333; font-size: 2em; font-weight: bold;">0</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 5px; font-weight: 600;">
+                            Playback Rate
+                            <label style="display: inline-flex; align-items: center; gap: 5px; margin-left: 10px; cursor: pointer; font-size: 0.85em;">
+                                <input type="checkbox" id="mapping-adaptive-toggle" checked onchange="toggleMappingAdaptive()" 
+                                       style="width: 16px; height: 16px; cursor: pointer; accent-color: #cc3333;">
+                                <span>Adaptive</span>
+                            </label>
+                        </div>
+                        <div style="color: #cc3333; font-size: 2em; font-weight: bold;">
+                            <input type="range" id="mapping-playback-rate-slider" min="1" max="200" value="100" 
+                                   style="width: 100%; margin-bottom: 5px;"
+                                   oninput="updateMappingPlaybackRate(this.value)">
+                            <div id="mapping-playback-rate-display" style="font-size: 0.8em;">100 Hz</div>
+                        </div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="color: #666; font-size: 0.9em; margin-bottom: 5px; font-weight: 600;">Time Since Chunk</div>
+                        <div id="mapping-time-since-chunk" style="color: #cc3333; font-size: 2em; font-weight: bold;">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Parameter Mapping Sonification Card -->
+            <div class="panel" style="background: linear-gradient(135deg, rgba(255, 245, 245, 0.95) 0%, rgba(240, 200, 195, 0.95) 100%);">
+                <h2 style="margin-bottom: 20px; color: #550000;">Parameter Mapping Sonification</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <!-- Left Side: Instantaneous Output Meters -->
+                    <div>
+                        <h3 style="color: #550000; font-size: 1.2em; margin-bottom: 15px;">Instantaneous Output</h3>
+                        
+                        <!-- Smoothing Controls -->
+                        <div style="margin-bottom: 20px; background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="mapping-smoothing-enabled" checked onchange="toggleMappingSmoothing()" 
+                                           style="width: 20px; height: 20px; cursor: pointer; accent-color: #cc3333;">
+                                    <span style="font-size: 1em; color: #333;">Enable Smoothing</span>
+                                </label>
+                            </div>
+                            
+                            <div>
+                                <label style="color: #333; font-size: 0.9em; display: block; margin-bottom: 8px; font-weight: 600;">
+                                    Smooth Time: <span id="mapping-smooth-time-display" style="color: #cc3333; font-weight: bold;">100 ms</span>
+                                </label>
+                                <input type="range" id="mapping-smooth-time-slider" min="20" max="500" value="100" 
+                                       style="width: 100%; cursor: pointer;"
+                                       oninput="updateMappingSmoothTime(this.value)">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #666; margin-top: 5px;">
+                                    <span>20ms</span>
+                                    <span>500ms</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Triple Meters -->
+                        <div style="display: flex; gap: 40px; justify-content: center; background: rgba(0,0,0,0.1); padding: 20px; border-radius: 8px;">
+                            <!-- RAW Meter -->
+                            <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                <div style="width: 60px; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; position: relative; margin-bottom: 10px;">
+                                    <div style="position: absolute; top: 10px; bottom: 40px; left: 50%; transform: translateX(-50%); width: 30px; background: rgba(100, 100, 100, 0.3); border-radius: 15px; overflow: hidden;">
+                                        <div id="mapping-raw-meter-indicator" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #ff4444 0%, #ffff44 50%, #44ff44 100%); transition: height 0.05s ease; border-radius: 15px;"></div>
+                                    </div>
+                                    <div id="mapping-raw-meter-value" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 0.75em; color: #cc3333; font-weight: bold; font-family: monospace;">--</div>
+                                </div>
+                                <div style="color: #cc3333; font-weight: bold; font-size: 1em; text-align: center;">RAW</div>
+                            </div>
+                            
+                            <!-- SMOOTHED Meter -->
+                            <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                <div style="width: 60px; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; position: relative; margin-bottom: 10px;">
+                                    <div style="position: absolute; top: 10px; bottom: 40px; left: 50%; transform: translateX(-50%); width: 30px; background: rgba(100, 100, 100, 0.3); border-radius: 15px; overflow: hidden;">
+                                        <div id="mapping-smoothed-meter-indicator" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #ff8844 0%, #ffcc44 50%, #88ff44 100%); transition: height 0.05s ease; border-radius: 15px;"></div>
+                                    </div>
+                                    <div id="mapping-smoothed-meter-value" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 0.75em; color: #ff8800; font-weight: bold; font-family: monospace;">--</div>
+                                </div>
+                                <div style="color: #ff8800; font-weight: bold; font-size: 1em; text-align: center;">SMOOTHED</div>
+                            </div>
+                            
+                            <!-- AMOUNT Meter -->
+                            <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                <div style="width: 60px; height: 300px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; position: relative; margin-bottom: 10px;">
+                                    <div style="position: absolute; top: 10px; bottom: 40px; left: 50%; transform: translateX(-50%); width: 30px; background: rgba(100, 100, 100, 0.3); border-radius: 15px; overflow: hidden;">
+                                        <div id="mapping-amount-meter-indicator" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, #dd0000 0%, #ff6633 50%, #ffaa77 100%); transition: height 0.05s ease; border-radius: 15px;"></div>
+                                    </div>
+                                    <div id="mapping-amount-meter-value" style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 0.75em; color: #dd0000; font-weight: bold; font-family: monospace;">--</div>
+                                </div>
+                                <div style="color: #dd0000; font-weight: bold; font-size: 1em; text-align: center;">AMOUNT</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Side: Audio Synthesis -->
+                    <div>
+                        <h3 style="color: #550000; font-size: 1.2em; margin-bottom: 15px;">Audio Synthesis</h3>
+                        
+                        <!-- Audio Controls -->
+                        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <div style="margin-bottom: 15px;">
+                                <button id="mapping-audio-toggle-btn" onclick="toggleMappingAudio()" style="width: 100%; padding: 12px; font-size: 1em;">
+                                    🔊 Play Test Mapping Audio
+                                </button>
+                            </div>
+                            
+                            <div style="color: #333; font-size: 0.85em; margin-bottom: 15px; font-weight: 600;">
+                                Sine Wave: <span id="mapping-audio-status" style="color: #ff4444; font-weight: bold;">OFF</span>
+                            </div>
+                            
+                            <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px; margin-bottom: 15px;">
+                                <div style="color: #550000; font-size: 0.95em; margin-bottom: 10px; font-weight: bold;">Parameter Mapping:</div>
+                                
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                        <input type="checkbox" id="mapping-amplitude-mapping" checked onchange="toggleMappingAmplitudeMapping()" 
+                                               style="width: 18px; height: 18px; cursor: pointer; accent-color: #cc3333;">
+                                        <span style="font-size: 0.9em; color: #333;">Map to Amplitude</span>
+                                    </label>
+                                </div>
+                                
+                                <div style="margin-bottom: 12px;">
+                                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                        <input type="checkbox" id="mapping-frequency-mapping" onchange="toggleMappingFrequencyMapping()" 
+                                               style="width: 18px; height: 18px; cursor: pointer; accent-color: #cc3333;">
+                                        <span style="font-size: 0.9em; color: #333;">Map to Frequency (100-300 Hz)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Amount Slider with Enable Checkbox -->
+                            <div style="border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                    <input type="checkbox" id="mapping-amount-enable" checked onchange="toggleMappingAmountEnable()" 
+                                           style="width: 18px; height: 18px; cursor: pointer; accent-color: #cc3333;">
+                                    <label style="color: #333; font-size: 0.9em; font-weight: 600; margin: 0;">
+                                        Amount: <span id="mapping-amount-display" style="color: #cc3333; font-weight: bold;">100%</span>
+                                    </label>
+                                </div>
+                                <input type="range" id="mapping-amount-slider" min="0" max="100" value="100" 
+                                       style="width: 100%; cursor: pointer;"
+                                       oninput="updateMappingAmount(this.value)">
+                                <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #666; margin-top: 5px;">
+                                    <span>0% (no impact)</span>
+                                    <span>100% (full range)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Current Audio Parameters Display -->
+                        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="color: #333; font-size: 0.9em; margin-bottom: 10px; font-weight: 600;">Current Parameters:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-family: monospace; font-size: 0.9em;">
+                                <div>
+                                    <div style="color: #550000; font-size: 0.85em; font-weight: 600;">Amplitude:</div>
+                                    <div id="mapping-audio-amplitude" style="color: #cc3333; font-weight: bold;">--</div>
+                                </div>
+                                <div>
+                                    <div style="color: #550000; font-size: 0.85em; font-weight: 600;">Frequency:</div>
+                                    <div id="mapping-audio-frequency" style="color: #ff8800; font-weight: bold;">--</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1116,10 +1321,7 @@
                 spectrogramInitialized = false;
                 
                 // Immediately update status to show fetching (don't wait for fade-out)
-                const useLocal = document.getElementById('useLocalServer').checked;
-                const baseMessage = useLocal 
-                    ? 'Fetching data from local backend'
-                    : 'Fetching data from Render backend';
+                const baseMessage = 'Fetching data from Render backend';
                 document.getElementById('status').className = 'status info loading';
                 document.getElementById('status').textContent = baseMessage;
                 
@@ -1210,13 +1412,9 @@
                 
                 console.log('📡 Requesting:', requestBody);
                 
-                // Determine backend URL based on checkbox (useLocal already defined above)
-                const backendUrl = useLocal 
-                    ? 'http://localhost:5001/api/stream-audio'
-                    : 'https://volcano-audio.onrender.com/api/stream-audio';
-                
-                const backendType = useLocal ? 'local' : 'Render.com';
-                console.log(`🌐 Using ${backendType} backend: ${backendUrl}`);
+                // Use Render backend
+                const backendUrl = 'https://volcano-audio.onrender.com/api/stream-audio';
+                console.log(`🌐 Using Render.com backend: ${backendUrl}`);
                 
                 // Start animated loading indicator with growing periods (2 per second)
                 // (baseMessage already defined above)
@@ -2094,7 +2292,6 @@
             document.getElementById('duration').addEventListener('change', enableFetchButton);
             document.getElementById('highpassFreq').addEventListener('change', enableFetchButton);
             document.getElementById('enableNormalize').addEventListener('change', enableFetchButton);
-            document.getElementById('useLocalServer').addEventListener('change', enableFetchButton);
             
             // Base sample rate changes playback speed immediately (does NOT trigger new fetch)
             document.getElementById('baseSampleRate').addEventListener('change', changeBaseSampleRate);
@@ -2166,7 +2363,7 @@
             });
             
             // Blur checkboxes after interaction so spacebar works immediately
-            const checkboxes = ['enableNormalize', 'useLocalServer'];
+            const checkboxes = ['enableNormalize'];
             checkboxes.forEach(id => {
                 const checkbox = document.getElementById(id);
                 if (checkbox) {
@@ -2182,6 +2379,725 @@
             
             console.log('✅ Event listeners added for fetch button re-enabling');
         });
+        
+        // ========================================
+        // PARAMETER MAPPING SONIFICATION SYSTEM
+        // ========================================
+        // This system operates independently from the main audio playback
+        // It maintains its own data buffer, fetches chunks, and provides real-time parameter mapping
+        
+        // Toggle mapping view visibility
+        function toggleMappingView() {
+            const checkbox = document.getElementById('viewActiveMapping');
+            const section = document.getElementById('mappingSection');
+            
+            if (checkbox.checked) {
+                section.style.display = 'block';
+                console.log('📊 Parameter Mapping view ENABLED');
+                
+                // Start mapping update loop if not already running
+                if (!mappingSystemStarted) {
+                    startMappingSystem();
+                }
+            } else {
+                section.style.display = 'none';
+                console.log('📊 Parameter Mapping view DISABLED');
+                
+                // Stop mapping audio if playing
+                if (mappingAudioEnabled) {
+                    toggleMappingAudio();
+                }
+            }
+        }
+        
+        // Mapping System State (COMPLETE implementation from simple seed sonif)
+        const MAPPING_MAX_BUFFER_SIZE = 50000;  // Maximum buffer size (500 seconds at 100 Hz)
+        let mappingDataBuffer = [];  // Bounded buffer - keeps most recent samples
+        let mappingTotalSamplesReceived = 0;  // Total samples received (cumulative)
+        let mappingTotalSamplesPlayed = 0;  // Total samples played/consumed
+        let mappingChunkCount = 0;
+        let mappingSampleRate = 100;  // Hz (data from server)
+        let mappingPlaybackRate = 100;  // Hz (playback speed - adjustable)
+        let mappingIsPaused = false;
+        let mappingScanInterval = null;
+        let mappingLastChunkId = -1;
+        let mappingLastChunkTime = null;
+        let mappingSystemStarted = false;
+        
+        // Intervals
+        let mappingUpdateInterval = null;
+        let mappingDataStateInterval = null;
+        let mappingFetchInterval = null;
+        
+        // Smoothing control
+        let mappingSmoothingEnabled = true;
+        let mappingSmoothTime = 100;  // milliseconds
+        let mappingSmoothedValue = null;
+        let mappingSmoothAlpha = 0.01;
+        
+        // Audio synthesis (separate from main audio)
+        let mappingAudioContext = null;
+        let mappingOscillator = null;
+        let mappingGainNode = null;
+        let mappingAudioEnabled = false;
+        let mappingAmplitudeMappingEnabled = true;
+        let mappingFrequencyMappingEnabled = false;
+        let mappingAmountPercent = 100;  // Default 100% (full range)
+        let mappingAmountEnabled = true;  // Default enabled
+        let liveAmplitudeEnabled = false;  // Default off
+        const MAPPING_MIN_FREQUENCY = 100;  // Hz
+        const MAPPING_MAX_FREQUENCY = 300;  // Hz
+        
+        // Adaptive speed control (EXACT copy from simple seed sonif)
+        let mappingAdaptiveEnabled = true;  // Start enabled by default
+        let mappingTargetPlaybackRate = 100;
+        let mappingAdaptiveInterval = null;
+        let mappingCurrentRampInterval = null;
+        
+        // Adaptive thresholds and rates (EXACT copy from simple seed sonif)
+        const MAPPING_ADAPTIVE_CONFIG = {
+            leftThresh1: 500,   leftRate1: 20,
+            leftThresh2: 1000,  leftRate2: 50,
+            leftThresh3: 1500,  leftRate3: 70,
+            normalRate: 100,
+            rightThresh1: 4000, rightRate1: 120,
+            rightThresh2: 6000, rightRate2: 150,
+            rightThresh3: 8000, rightRate3: 200,
+            smoothTransitionTime: 3  // seconds
+        };
+        
+        // Adaptive scaling (for display range)
+        let mappingDisplayMin = 0;
+        let mappingDisplayMax = 1;
+        let mappingScaleInitialized = false;
+        const MAPPING_SCALE_ALPHA = 0.0033;  // Smoothing factor
+        
+        // Data State Object (calculated values independent of visualization)
+        const mappingDataState = {
+            currentOutputValue: null,
+            currentOutputNormalized: null,
+            smoothedOutputValue: null,
+            smoothedOutputNormalized: null,
+            displayMin: 0,
+            displayMax: 1,
+            scaleInitialized: false,
+            currentMin: null,
+            currentMax: null,
+            lastUpdated: Date.now()
+        };
+        
+        // Start the mapping system (COMPLETE implementation)
+        function startMappingSystem() {
+            console.log('🎬 Starting Parameter Mapping System (FULL simple seed sonif implementation)...');
+            
+            mappingSystemStarted = true;
+            
+            // Start fetching chunks every 100ms
+            if (!mappingFetchInterval) {
+                mappingFetchInterval = setInterval(fetchMappingChunk, 100);
+            }
+            
+            // Start scanning (consuming samples) at playback rate
+            if (!mappingScanInterval) {
+                mappingScanInterval = setInterval(advanceMappingScan, 1000 / mappingPlaybackRate);
+            }
+            
+            // Update data state at ~60fps
+            if (!mappingDataStateInterval) {
+                mappingDataStateInterval = setInterval(updateMappingDataState, 17);
+            }
+            
+            // Update UI at ~60fps
+            if (!mappingUpdateInterval) {
+                mappingUpdateInterval = setInterval(() => {
+                    updateMappingStats();
+                    updateMappingParameterMeters();
+                    updateMappingAudioParameters();
+                }, 17);
+            }
+            
+            // Initialize smooth time alpha
+            updateMappingSmoothTime(100);
+            
+            // Enable adaptive mode by default
+            toggleMappingAdaptive();
+            
+            console.log('✅ Parameter Mapping System started');
+            console.log(`🚀 Intervals - fetchChunk: 100ms, advanceScan: ${1000/mappingPlaybackRate}ms, updateDataState: 17ms, updateUI: 17ms`);
+        }
+        
+        // Fetch chunks from backend (EXACT copy from simple seed sonif)
+        async function fetchMappingChunk() {
+            try {
+                const response = await fetch('http://localhost:8889/api/get_chunk');
+                const data = await response.json();
+                
+                // Check if this is actually NEW data
+                if (data.chunk_id && data.chunk_id !== mappingLastChunkId && data.samples && data.samples.length > 0) {
+                    mappingLastChunkId = data.chunk_id;
+                    
+                    // Duplicate pattern detection (EXACT copy from simple seed sonif)
+                    let exactOverlap = 0;
+                    if (mappingDataBuffer.length > 0) {
+                        const maxCheck = Math.min(500, mappingDataBuffer.length, data.samples.length);
+                        for (let len = maxCheck; len >= 10; len--) {
+                            let matches = true;
+                            for (let i = 0; i < len; i++) {
+                                if (mappingDataBuffer[mappingDataBuffer.length - len + i] !== data.samples[i]) {
+                                    matches = false;
+                                    break;
+                                }
+                            }
+                            if (matches) {
+                                exactOverlap = len;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Auto-deduplication
+                    let deduplicatedSamples = data.samples;
+                    let removedDuplicates = 0;
+                    
+                    if (exactOverlap >= 10) {
+                        console.warn(`🔧 AUTO-DEDUPLICATING chunk ${data.chunk_id}: Removing ${exactOverlap} duplicate samples`);
+                        deduplicatedSamples = data.samples.slice(exactOverlap);
+                        removedDuplicates = exactOverlap;
+                    }
+                    
+                    // Add to buffer
+                    const samplesToAdd = deduplicatedSamples.length;
+                    mappingChunkCount++;
+                    mappingTotalSamplesReceived += samplesToAdd;
+                    mappingLastChunkTime = Date.now();
+                    
+                    const beforeLength = mappingDataBuffer.length;
+                    mappingDataBuffer.push(...deduplicatedSamples);
+                    
+                    // Trim buffer if needed
+                    if (mappingDataBuffer.length > MAPPING_MAX_BUFFER_SIZE) {
+                        const excess = mappingDataBuffer.length - MAPPING_MAX_BUFFER_SIZE;
+                        mappingDataBuffer.splice(0, excess);
+                        console.log(`📦 Buffer trimmed: removed ${excess} old samples`);
+                    }
+                    
+                    const min = Math.min(...deduplicatedSamples);
+                    const max = Math.max(...deduplicatedSamples);
+                    console.log(`📦 NEW CHUNK ${mappingChunkCount} (ID: ${data.chunk_id}): ${deduplicatedSamples.length} samples | Range: [${min.toFixed(1)}, ${max.toFixed(1)}]`);
+                    
+                    if (data.sample_rate) {
+                        mappingSampleRate = data.sample_rate;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching mapping chunk:', error);
+            }
+        }
+        
+        // Advance playback by consuming data (EXACT copy from simple seed sonif)
+        function advanceMappingScan() {
+            if (!mappingIsPaused && mappingDataBuffer.length > 0) {
+                mappingDataBuffer.shift();  // Remove first element
+                mappingTotalSamplesPlayed++;
+            }
+        }
+        
+        // Update data state from buffer (EXACT copy from simple seed sonif)
+        function updateMappingDataState() {
+            mappingDataState.lastUpdated = Date.now();
+            
+            // 1. Calculate current output value (what's at the scan line)
+            if (mappingDataBuffer.length > 0) {
+                mappingDataState.currentOutputValue = mappingDataBuffer[0];
+                
+                // Normalize to [0, 1] range
+                const range = mappingDisplayMax - mappingDisplayMin;
+                const normalizedValue = range > 0 ? (mappingDataState.currentOutputValue - mappingDisplayMin) / range : 0.5;
+                mappingDataState.currentOutputNormalized = Math.max(0, Math.min(1, normalizedValue));
+                
+                // Calculate smoothed output
+                if (mappingSmoothingEnabled) {
+                    if (mappingSmoothedValue === null) {
+                        mappingSmoothedValue = mappingDataState.currentOutputValue;
+                    } else {
+                        mappingSmoothedValue = mappingSmoothAlpha * mappingDataState.currentOutputValue + (1 - mappingSmoothAlpha) * mappingSmoothedValue;
+                    }
+                    mappingDataState.smoothedOutputValue = mappingSmoothedValue;
+                    
+                    const smoothedNormalized = range > 0 ? (mappingSmoothedValue - mappingDisplayMin) / range : 0.5;
+                    mappingDataState.smoothedOutputNormalized = Math.max(0, Math.min(1, smoothedNormalized));
+                } else {
+                    mappingDataState.smoothedOutputValue = mappingDataState.currentOutputValue;
+                    mappingDataState.smoothedOutputNormalized = mappingDataState.currentOutputNormalized;
+                }
+            } else {
+                mappingDataState.currentOutputValue = null;
+                mappingDataState.currentOutputNormalized = null;
+                mappingDataState.smoothedOutputValue = null;
+                mappingDataState.smoothedOutputNormalized = null;
+            }
+            
+            // 2. Calculate adaptive scaling
+            const bufferLength = mappingDataBuffer.length;
+            if (bufferLength > 1) {
+                const analysisWindow = Math.min(3000, bufferLength);
+                const analysisData = mappingDataBuffer.slice(0, analysisWindow);
+                
+                mappingDataState.currentMin = Math.min(...analysisData);
+                mappingDataState.currentMax = Math.max(...analysisData);
+                
+                if (!mappingDataState.scaleInitialized && analysisData.length > 100) {
+                    mappingDataState.displayMin = mappingDataState.currentMin;
+                    mappingDataState.displayMax = mappingDataState.currentMax;
+                    mappingDataState.scaleInitialized = true;
+                    mappingDisplayMin = mappingDataState.displayMin;
+                    mappingDisplayMax = mappingDataState.displayMax;
+                    mappingScaleInitialized = true;
+                    console.log(`📊 Initialized display scale: [${mappingDataState.displayMin.toFixed(0)}, ${mappingDataState.displayMax.toFixed(0)}]`);
+                }
+                
+                mappingDataState.displayMin = MAPPING_SCALE_ALPHA * mappingDataState.currentMin + (1 - MAPPING_SCALE_ALPHA) * mappingDataState.displayMin;
+                mappingDataState.displayMax = MAPPING_SCALE_ALPHA * mappingDataState.currentMax + (1 - MAPPING_SCALE_ALPHA) * mappingDataState.displayMax;
+                mappingDisplayMin = mappingDataState.displayMin;
+                mappingDisplayMax = mappingDataState.displayMax;
+            }
+            
+            // 3. Calculate statistics
+            if (mappingLastChunkTime !== null) {
+                mappingDataState.timeSinceLastChunk = (Date.now() - mappingLastChunkTime) / 1000;
+            } else {
+                mappingDataState.timeSinceLastChunk = null;
+            }
+            
+            mappingDataState.bufferFillPercent = (bufferLength / MAPPING_MAX_BUFFER_SIZE * 100);
+        }
+        
+        // Update statistics display
+        function updateMappingStats() {
+            document.getElementById('mapping-chunk-count').textContent = mappingChunkCount;
+            document.getElementById('mapping-total-received').textContent = mappingTotalSamplesReceived.toLocaleString();
+            document.getElementById('mapping-samples-remaining').textContent = mappingDataBuffer.length.toLocaleString();
+            
+            if (mappingDataState.timeSinceLastChunk !== null) {
+                document.getElementById('mapping-time-since-chunk').textContent = mappingDataState.timeSinceLastChunk.toFixed(1) + 's';
+            } else {
+                document.getElementById('mapping-time-since-chunk').textContent = '--';
+            }
+        }
+        
+        // Update parameter mapping meters
+        function updateMappingParameterMeters() {
+            const rawMeterIndicator = document.getElementById('mapping-raw-meter-indicator');
+            const rawMeterValue = document.getElementById('mapping-raw-meter-value');
+            const smoothedMeterIndicator = document.getElementById('mapping-smoothed-meter-indicator');
+            const smoothedMeterValue = document.getElementById('mapping-smoothed-meter-value');
+            const amountMeterIndicator = document.getElementById('mapping-amount-meter-indicator');
+            const amountMeterValue = document.getElementById('mapping-amount-meter-value');
+            
+            if (!rawMeterIndicator || !smoothedMeterIndicator || !amountMeterIndicator) return;
+            
+            // Update RAW meter
+            if (mappingDataState.currentOutputNormalized !== null) {
+                const rawValue = mappingDataState.currentOutputNormalized;
+                rawMeterIndicator.style.height = (rawValue * 100) + '%';
+                rawMeterValue.textContent = rawValue.toFixed(3);
+            } else {
+                rawMeterIndicator.style.height = '0%';
+                rawMeterValue.textContent = '--';
+            }
+            
+            // Update SMOOTHED meter
+            if (mappingDataState.smoothedOutputNormalized !== null) {
+                const smoothedValue = mappingDataState.smoothedOutputNormalized;
+                smoothedMeterIndicator.style.height = (smoothedValue * 100) + '%';
+                smoothedMeterValue.textContent = smoothedValue.toFixed(3);
+                
+                // Update AMOUNT meter (range-compressed value only if enabled)
+                let compressedValue;
+                if (mappingAmountEnabled) {
+                    // Apply amount compression: compressedValue = (1 - amount/100) + smoothedValue * (amount/100)
+                    const amountFraction = mappingAmountPercent / 100;
+                    const minOutput = 1 - amountFraction;
+                    compressedValue = minOutput + smoothedValue * amountFraction;
+                } else {
+                    // Amount disabled - show same as smoothed (full range)
+                    compressedValue = smoothedValue;
+                }
+                amountMeterIndicator.style.height = (compressedValue * 100) + '%';
+                amountMeterValue.textContent = compressedValue.toFixed(3);
+            } else {
+                smoothedMeterIndicator.style.height = '0%';
+                smoothedMeterValue.textContent = '--';
+                amountMeterIndicator.style.height = '0%';
+                amountMeterValue.textContent = '--';
+            }
+        }
+        
+        // Toggle smoothing
+        function toggleMappingSmoothing() {
+            const checkbox = document.getElementById('mapping-smoothing-enabled');
+            mappingSmoothingEnabled = checkbox.checked;
+            
+            if (mappingSmoothingEnabled) {
+                console.log(`🎛️ Mapping smoothing ENABLED - smooth time: ${mappingSmoothTime}ms`);
+            } else {
+                console.log(`🎛️ Mapping smoothing DISABLED - using raw values`);
+                mappingSmoothedValue = null;
+            }
+        }
+        
+        // Update smooth time
+        function updateMappingSmoothTime(newTime) {
+            mappingSmoothTime = parseInt(newTime);
+            document.getElementById('mapping-smooth-time-display').textContent = mappingSmoothTime + ' ms';
+            
+            // Calculate alpha for exponential smoothing
+            // At 60fps update rate
+            const updateRate = 60;  // Hz
+            const timeConstant = mappingSmoothTime / 1000;  // Convert to seconds
+            const sampleInterval = 1 / updateRate;
+            mappingSmoothAlpha = 1 - Math.exp(-sampleInterval / timeConstant);
+            
+            console.log(`🎛️ Mapping smooth time updated: ${mappingSmoothTime}ms (alpha: ${mappingSmoothAlpha.toFixed(4)})`);
+        }
+        
+        // Toggle mapping audio
+        function toggleMappingAudio() {
+            if (!mappingAudioEnabled) {
+                // Start mapping audio with fade-in
+                mappingAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                mappingOscillator = mappingAudioContext.createOscillator();
+                mappingOscillator.type = 'sine';
+                mappingOscillator.frequency.value = 200;
+                
+                mappingGainNode = mappingAudioContext.createGain();
+                mappingGainNode.gain.value = 0.0001;  // Start silent for fade-in
+                
+                mappingOscillator.connect(mappingGainNode);
+                mappingGainNode.connect(mappingAudioContext.destination);
+                
+                mappingOscillator.start();
+                
+                // Fade in over 200ms with exponential ramp
+                const now = mappingAudioContext.currentTime;
+                mappingGainNode.gain.setValueAtTime(0.0001, now);
+                mappingGainNode.gain.exponentialRampToValueAtTime(0.3, now + 0.2);
+                
+                mappingAudioEnabled = true;
+                document.getElementById('mapping-audio-toggle-btn').textContent = '🔇 Stop Mapping Audio';
+                document.getElementById('mapping-audio-toggle-btn').classList.add('active');
+                document.getElementById('mapping-audio-status').textContent = 'ON';
+                document.getElementById('mapping-audio-status').style.color = '#00ff88';
+                
+                console.log('🔊 Mapping audio synthesis STARTED (fade-in 200ms)');
+            } else {
+                // Fade out before stopping
+                if (mappingGainNode && mappingAudioContext) {
+                    const now = mappingAudioContext.currentTime;
+                    const currentGain = mappingGainNode.gain.value;
+                    
+                    // Fade out over 200ms
+                    mappingGainNode.gain.cancelScheduledValues(now);
+                    mappingGainNode.gain.setValueAtTime(currentGain, now);
+                    mappingGainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+                    
+                    console.log(`🔇 Mapping audio fading out (200ms): ${currentGain.toFixed(3)} → 0.0001`);
+                    
+                    // Wait for fade-out to complete before stopping
+                    setTimeout(() => {
+                        if (mappingOscillator) {
+                            mappingOscillator.stop();
+                            mappingOscillator.disconnect();
+                            mappingOscillator = null;
+                        }
+                        if (mappingGainNode) {
+                            mappingGainNode.disconnect();
+                            mappingGainNode = null;
+                        }
+                        if (mappingAudioContext) {
+                            mappingAudioContext.close();
+                            mappingAudioContext = null;
+                        }
+                        
+                        console.log('✅ Mapping audio synthesis STOPPED');
+                    }, 250);  // Wait 250ms (200ms fade + 50ms buffer)
+                }
+                
+                // Update UI immediately
+                mappingAudioEnabled = false;
+                document.getElementById('mapping-audio-toggle-btn').textContent = '🔊 Play Test Mapping Audio';
+                document.getElementById('mapping-audio-toggle-btn').classList.remove('active');
+                document.getElementById('mapping-audio-status').textContent = 'OFF';
+                document.getElementById('mapping-audio-status').style.color = '#ff4444';
+                document.getElementById('mapping-audio-amplitude').textContent = '--';
+                document.getElementById('mapping-audio-frequency').textContent = '--';
+            }
+        }
+        
+        // Toggle amplitude mapping
+        function toggleMappingAmplitudeMapping() {
+            const checkbox = document.getElementById('mapping-amplitude-mapping');
+            mappingAmplitudeMappingEnabled = checkbox.checked;
+            console.log(`🎚️ Mapping amplitude mapping: ${mappingAmplitudeMappingEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // Toggle frequency mapping
+        function toggleMappingFrequencyMapping() {
+            const checkbox = document.getElementById('mapping-frequency-mapping');
+            mappingFrequencyMappingEnabled = checkbox.checked;
+            console.log(`🎚️ Mapping frequency mapping: ${mappingFrequencyMappingEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // Update amount from bottom slider (also updates top slider)
+        function updateMappingAmount(newAmount) {
+            mappingAmountPercent = parseInt(newAmount);
+            document.getElementById('mapping-amount-display').textContent = mappingAmountPercent + '%';
+            
+            // Sync top slider
+            document.getElementById('topAmountSlider').value = mappingAmountPercent;
+            document.getElementById('topAmountValue').textContent = mappingAmountPercent + '%';
+            
+            console.log(`🎚️ Mapping amount updated (from bottom): ${mappingAmountPercent}%`);
+        }
+        
+        // Update amount from top slider (also updates bottom slider)
+        function updateTopAmount(newAmount) {
+            mappingAmountPercent = parseInt(newAmount);
+            document.getElementById('topAmountValue').textContent = mappingAmountPercent + '%';
+            
+            // Sync bottom slider
+            document.getElementById('mapping-amount-slider').value = mappingAmountPercent;
+            document.getElementById('mapping-amount-display').textContent = mappingAmountPercent + '%';
+            
+            console.log(`🎚️ Mapping amount updated (from top): ${mappingAmountPercent}%`);
+        }
+        
+        // Toggle Live Amplitude (also syncs with mapping amount enable)
+        function toggleLiveAmplitude() {
+            const checkbox = document.getElementById('liveAmplitudeCheckbox');
+            liveAmplitudeEnabled = checkbox.checked;
+            
+            // Sync with mapping amount enable checkbox
+            mappingAmountEnabled = liveAmplitudeEnabled;
+            document.getElementById('mapping-amount-enable').checked = liveAmplitudeEnabled;
+            
+            console.log(`🎚️ Live Amplitude: ${liveAmplitudeEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // Toggle mapping amount enable (also syncs with live amplitude)
+        function toggleMappingAmountEnable() {
+            const checkbox = document.getElementById('mapping-amount-enable');
+            mappingAmountEnabled = checkbox.checked;
+            
+            // Sync with live amplitude checkbox
+            liveAmplitudeEnabled = mappingAmountEnabled;
+            document.getElementById('liveAmplitudeCheckbox').checked = mappingAmountEnabled;
+            
+            console.log(`🎚️ Mapping Amount Enable: ${mappingAmountEnabled ? 'ENABLED' : 'DISABLED'}`);
+        }
+        
+        // ========================================
+        // ADAPTIVE PLAYBACK RATE CONTROL (EXACT copy from simple seed sonif)
+        // ========================================
+        
+        // Toggle adaptive speed control
+        function toggleMappingAdaptive() {
+            const checkbox = document.getElementById('mapping-adaptive-toggle');
+            mappingAdaptiveEnabled = checkbox.checked;
+            
+            if (mappingAdaptiveEnabled) {
+                console.log('🎚️ Mapping adaptive speed control ENABLED');
+                
+                mappingTargetPlaybackRate = calculateMappingTargetRate();
+                
+                if (mappingAdaptiveInterval) {
+                    clearInterval(mappingAdaptiveInterval);
+                }
+                mappingAdaptiveInterval = setInterval(updateMappingAdaptiveRate, 100);
+                updateMappingAdaptiveRate();
+            } else {
+                console.log('🎚️ Mapping adaptive speed control DISABLED');
+                
+                if (mappingAdaptiveInterval) {
+                    clearInterval(mappingAdaptiveInterval);
+                    mappingAdaptiveInterval = null;
+                }
+                
+                if (mappingCurrentRampInterval) {
+                    clearInterval(mappingCurrentRampInterval);
+                    mappingCurrentRampInterval = null;
+                }
+                
+                mappingTargetPlaybackRate = MAPPING_ADAPTIVE_CONFIG.normalRate;
+                applyMappingPlaybackRate(MAPPING_ADAPTIVE_CONFIG.normalRate);
+            }
+        }
+        
+        // Calculate target playback rate based on buffer size
+        function calculateMappingTargetRate() {
+            const bufferSize = mappingDataBuffer.length;
+            const cfg = MAPPING_ADAPTIVE_CONFIG;
+            
+            if (bufferSize <= cfg.leftThresh1) {
+                return cfg.leftRate1;
+            } else if (bufferSize <= cfg.leftThresh2) {
+                return cfg.leftRate2;
+            } else if (bufferSize <= cfg.leftThresh3) {
+                return cfg.leftRate3;
+            } else if (bufferSize >= cfg.rightThresh3) {
+                return cfg.rightRate3;
+            } else if (bufferSize >= cfg.rightThresh2) {
+                return cfg.rightRate2;
+            } else if (bufferSize >= cfg.rightThresh1) {
+                return cfg.rightRate1;
+            } else {
+                return cfg.normalRate;
+            }
+        }
+        
+        // Linear ramp from start rate to end rate over duration
+        function rampMappingPlaybackRate(start, end, duration) {
+            if (mappingCurrentRampInterval) {
+                clearInterval(mappingCurrentRampInterval);
+                mappingCurrentRampInterval = null;
+            }
+            
+            if (start === end) {
+                applyMappingPlaybackRate(end);
+                return;
+            }
+            
+            const steps = Math.max(1, Math.round(duration * 10));
+            const delta = (end - start) / steps;
+            let i = 0;
+            
+            mappingCurrentRampInterval = setInterval(() => {
+                i++;
+                const newRate = Math.round(start + delta * i);
+                const clampedRate = Math.max(1, Math.min(200, newRate));
+                applyMappingPlaybackRate(clampedRate);
+                
+                if (i >= steps) {
+                    clearInterval(mappingCurrentRampInterval);
+                    mappingCurrentRampInterval = null;
+                    applyMappingPlaybackRate(end);
+                }
+            }, 100);
+        }
+        
+        // Update adaptive rate with smooth transitions
+        function updateMappingAdaptiveRate() {
+            if (!mappingAdaptiveEnabled) return;
+            
+            const newTargetRate = calculateMappingTargetRate();
+            
+            if (newTargetRate !== mappingTargetPlaybackRate) {
+                console.log(`🎯 Mapping target rate changed: ${mappingTargetPlaybackRate} → ${newTargetRate} Hz (buffer: ${mappingDataBuffer.length} samples)`);
+                mappingTargetPlaybackRate = newTargetRate;
+                rampMappingPlaybackRate(mappingPlaybackRate, mappingTargetPlaybackRate, MAPPING_ADAPTIVE_CONFIG.smoothTransitionTime);
+            }
+        }
+        
+        // Apply a new playback rate (internal function)
+        function applyMappingPlaybackRate(newRate) {
+            if (newRate === mappingPlaybackRate) return;
+            
+            mappingPlaybackRate = newRate;
+            document.getElementById('mapping-playback-rate-slider').value = mappingPlaybackRate;
+            document.getElementById('mapping-playback-rate-display').textContent = mappingPlaybackRate + ' Hz';
+            
+            // Restart scan interval with new rate
+            if (mappingScanInterval) {
+                clearInterval(mappingScanInterval);
+            }
+            mappingScanInterval = setInterval(advanceMappingScan, 1000 / mappingPlaybackRate);
+        }
+        
+        // Update playback rate (manual slider control)
+        function updateMappingPlaybackRate(newRate) {
+            const rate = parseInt(newRate);
+            
+            // Stop any active ramp
+            if (mappingCurrentRampInterval) {
+                clearInterval(mappingCurrentRampInterval);
+                mappingCurrentRampInterval = null;
+            }
+            
+            // Manual override disables adaptive
+            if (mappingAdaptiveEnabled) {
+                console.log(`🎚️ Manual mapping rate change - disabling adaptive mode`);
+                const checkbox = document.getElementById('mapping-adaptive-toggle');
+                checkbox.checked = false;
+                toggleMappingAdaptive();
+            }
+            
+            mappingTargetPlaybackRate = rate;
+            applyMappingPlaybackRate(rate);
+            console.log(`🎚️ Mapping playback rate manually set to ${rate} Hz`);
+        }
+        
+        // ========================================
+        // END ADAPTIVE PLAYBACK RATE CONTROL
+        // ========================================
+        
+        // Update audio parameters based on smoothed value
+        function updateMappingAudioParameters() {
+            if (!mappingAudioEnabled || !mappingOscillator || !mappingGainNode) return;
+            
+            const smoothedValue = mappingDataState.smoothedOutputNormalized;
+            if (smoothedValue === null) return;
+            
+            // Apply amount compression only if enabled
+            let compressedValue;
+            if (mappingAmountEnabled) {
+                // Apply amount compression to the smoothed value
+                // At 100%: range [0, 1]
+                // At 0%: range [1, 1] (no impact)
+                // Formula: compressedValue = (1 - amount/100) + smoothedValue * (amount/100)
+                const amountFraction = mappingAmountPercent / 100;
+                const minOutput = 1 - amountFraction;
+                compressedValue = minOutput + smoothedValue * amountFraction;
+            } else {
+                // Amount disabled - use full range (same as 100%)
+                compressedValue = smoothedValue;
+            }
+            
+            const now = mappingAudioContext.currentTime;
+            const rampTime = 0.02;  // 20ms ramp
+            
+            // Map to amplitude (using compressed value)
+            if (mappingAmplitudeMappingEnabled) {
+                const amplitude = compressedValue * 0.5;
+                mappingGainNode.gain.cancelScheduledValues(now);
+                mappingGainNode.gain.setValueAtTime(mappingGainNode.gain.value, now);
+                mappingGainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, amplitude), now + rampTime);
+                document.getElementById('mapping-audio-amplitude').textContent = amplitude.toFixed(3);
+            } else {
+                mappingGainNode.gain.cancelScheduledValues(now);
+                mappingGainNode.gain.setValueAtTime(mappingGainNode.gain.value, now);
+                mappingGainNode.gain.exponentialRampToValueAtTime(0.3, now + rampTime);
+                document.getElementById('mapping-audio-amplitude').textContent = '0.300 (fixed)';
+            }
+            
+            // Map to frequency (using compressed value)
+            if (mappingFrequencyMappingEnabled) {
+                const frequency = MAPPING_MIN_FREQUENCY + compressedValue * (MAPPING_MAX_FREQUENCY - MAPPING_MIN_FREQUENCY);
+                mappingOscillator.frequency.cancelScheduledValues(now);
+                mappingOscillator.frequency.setValueAtTime(mappingOscillator.frequency.value, now);
+                mappingOscillator.frequency.exponentialRampToValueAtTime(frequency, now + rampTime);
+                document.getElementById('mapping-audio-frequency').textContent = frequency.toFixed(1) + ' Hz';
+            } else {
+                mappingOscillator.frequency.cancelScheduledValues(now);
+                mappingOscillator.frequency.setValueAtTime(mappingOscillator.frequency.value, now);
+                mappingOscillator.frequency.exponentialRampToValueAtTime(200, now + rampTime);
+                document.getElementById('mapping-audio-frequency').textContent = '200.0 Hz (fixed)';
+            }
+        }
+        
+        // ========================================
+        // END PARAMETER MAPPING SONIFICATION SYSTEM
+        // ========================================
     </script>
 </body>
 </html>
