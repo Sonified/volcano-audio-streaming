@@ -815,7 +815,7 @@
                             </label>
                         </div>
                         <div style="color: #cc3333; font-size: 2em; font-weight: bold;">
-                            <input type="range" id="mapping-playback-rate-slider" min="1" max="200" value="100" 
+                            <input type="range" id="mapping-playback-rate-slider" min="1" max="500" value="100" 
                                    style="width: 100%; margin-bottom: 5px;"
                                    oninput="updateMappingPlaybackRate(this.value)">
                             <div id="mapping-playback-rate-display" style="font-size: 0.8em;">100 Hz</div>
@@ -2727,15 +2727,18 @@
         let mappingAdaptiveInterval = null;
         let mappingCurrentRampInterval = null;
         
-        // Adaptive thresholds and rates (EXACT copy from simple seed sonif)
+        // Adaptive thresholds and rates
         const MAPPING_ADAPTIVE_CONFIG = {
-            leftThresh1: 500,   leftRate1: 20,
-            leftThresh2: 1000,  leftRate2: 50,
-            leftThresh3: 1500,  leftRate3: 70,
+            leftThresh0: 100,   leftRate0: 5,    // Super slow for critically low buffer
+            leftThresh1: 300,   leftRate1: 10,   // Very slow for very low buffer
+            leftThresh2: 500,   leftRate2: 20,
+            leftThresh3: 1000,  leftRate3: 50,
+            leftThresh4: 1500,  leftRate4: 70,
             normalRate: 100,
             rightThresh1: 4000, rightRate1: 120,
             rightThresh2: 6000, rightRate2: 150,
             rightThresh3: 8000, rightRate3: 200,
+            rightThresh4: 10000, rightRate4: 500,  // Turbo mode for large buffers
             smoothTransitionTime: 3  // seconds
         };
         
@@ -3417,20 +3420,26 @@
             const bufferSize = mappingDataBuffer.length;
             const cfg = MAPPING_ADAPTIVE_CONFIG;
             
-            if (bufferSize <= cfg.leftThresh1) {
-                return cfg.leftRate1;
+            if (bufferSize <= cfg.leftThresh0) {
+                return cfg.leftRate0;  // 5 Hz - critically low buffer
+            } else if (bufferSize <= cfg.leftThresh1) {
+                return cfg.leftRate1;  // 10 Hz - very low buffer
             } else if (bufferSize <= cfg.leftThresh2) {
-                return cfg.leftRate2;
+                return cfg.leftRate2;  // 20 Hz
             } else if (bufferSize <= cfg.leftThresh3) {
-                return cfg.leftRate3;
+                return cfg.leftRate3;  // 50 Hz
+            } else if (bufferSize <= cfg.leftThresh4) {
+                return cfg.leftRate4;  // 70 Hz
+            } else if (bufferSize >= cfg.rightThresh4) {
+                return cfg.rightRate4;  // 500 Hz - turbo mode
             } else if (bufferSize >= cfg.rightThresh3) {
-                return cfg.rightRate3;
+                return cfg.rightRate3;  // 200 Hz
             } else if (bufferSize >= cfg.rightThresh2) {
-                return cfg.rightRate2;
+                return cfg.rightRate2;  // 150 Hz
             } else if (bufferSize >= cfg.rightThresh1) {
-                return cfg.rightRate1;
+                return cfg.rightRate1;  // 120 Hz
             } else {
-                return cfg.normalRate;
+                return cfg.normalRate;  // 100 Hz - normal
             }
         }
         
@@ -3453,7 +3462,7 @@
             mappingCurrentRampInterval = setInterval(() => {
                 i++;
                 const newRate = Math.round(start + delta * i);
-                const clampedRate = Math.max(1, Math.min(200, newRate));
+                const clampedRate = Math.max(1, Math.min(500, newRate));
                 applyMappingPlaybackRate(clampedRate);
                 
                 if (i >= steps) {
