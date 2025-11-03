@@ -206,6 +206,31 @@ def get_seedlink_status():
     
     return jsonify(status_data)
 
+@app.route('/api/temp_stats')
+def get_temp_stats():
+    """Monitor temp file usage - shows .mseed files in temp directory"""
+    temp_dir = tempfile.gettempdir()
+    mseed_files = list(Path(temp_dir).glob("*.mseed"))
+    
+    total_size = sum(f.stat().st_size for f in mseed_files if f.exists())
+    
+    return jsonify({
+        "temp_directory": temp_dir,
+        "mseed_file_count": len(mseed_files),
+        "total_size_mb": round(total_size / (1024 * 1024), 2),
+        "total_size_bytes": total_size,
+        "files": [
+            {
+                "name": f.name,
+                "size_mb": round(f.stat().st_size / (1024 * 1024), 2),
+                "size_bytes": f.stat().st_size,
+                "age_hours": round((time.time() - f.stat().st_mtime) / 3600, 2),
+                "modified": time.ctime(f.stat().st_mtime)
+            }
+            for f in sorted(mseed_files, key=lambda x: x.stat().st_mtime, reverse=True)
+        ]
+    })
+
 # ========================================
 # END SEEDLINK CHUNK FORWARDER (SUBPROCESS MODE)
 # ========================================

@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Endpoint Tester</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+        h1 {
+            color: #ff6b35;
+            text-align: center;
+        }
+        .test-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 2px solid #444;
+        }
+        .test-section h2 {
+            color: #4ecdc4;
+            margin-top: 0;
+        }
+        button {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 10px 10px 0;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #ff8555;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #1a1a1a;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            border-color: #4ecdc4;
+            color: #4ecdc4;
+        }
+        .error {
+            border-color: #ff6b35;
+            color: #ff6b35;
+        }
+        .loading {
+            border-color: #ffd93d;
+            color: #ffd93d;
+        }
+        .endpoint-url {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 3px solid #4ecdc4;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-success {
+            background: #4ecdc4;
+            color: #1a1a1a;
+        }
+        .status-error {
+            background: #ff6b35;
+            color: white;
+        }
+        .status-testing {
+            background: #ffd93d;
+            color: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌋 Volcano Audio API Endpoint Tester</h1>
+    
+    <div class="test-section">
+        <h2>🔍 Test 1: Health Check Endpoints</h2>
+        <p>Testing basic connectivity to both backends</p>
+        <button onclick="testHealthCheck('render')">Test Render (Current)</button>
+        <button onclick="testHealthCheck('railway')">Test Railway (New)</button>
+        <button onclick="testBothHealthChecks()">Test Both</button>
+        <div id="health-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test 2: Get Chunk ID (Mapping System)</h2>
+        <p>Testing the real-time data chunk endpoints</p>
+        <button onclick="testChunkId('render')">Test Render</button>
+        <button onclick="testChunkId('railway')">Test Railway</button>
+        <button onclick="testBothChunkIds()">Test Both</button>
+        <div id="chunk-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>🎵 Test 3: Stream Audio Endpoint</h2>
+        <p>Testing the main audio data endpoint (small request)</p>
+        <button onclick="testStreamAudio('render')">Test Render</button>
+        <button onclick="testStreamAudio('railway')">Test Railway</button>
+        <button onclick="testBothStreamAudio()">Test Both</button>
+        <div id="stream-result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📡 Test 4: Get Full Chunk (Mapping System)</h2>
+        <p>Testing the full chunk data endpoint</p>
+        <button onclick="testGetChunk('render')">Test Render</button>
+        <button onclick="testGetChunk('railway')">Test Railway</button>
+        <button onclick="testBothGetChunk()">Test Both</button>
+        <div id="full-chunk-result" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        const ENDPOINTS = {
+            render: {
+                name: 'Render (Current)',
+                base: 'https://volcano-audio.onrender.com',
+                api: 'https://volcano-audio.onrender.com/api'
+            },
+            railway: {
+                name: 'Railway (New)',
+                base: 'https://volcano-audio-backend-production.up.railway.app',
+                api: 'https://volcano-audio-backend-production.up.railway.app/api'
+            }
+        };
+
+        function displayResult(elementId, message, type = 'loading') {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${type}`;
+            element.textContent = message;
+        }
+
+        async function testHealthCheck(backend) {
+            const endpoint = ENDPOINTS[backend];
+            const resultId = 'health-result';
+            
+            displayResult(resultId, `Testing ${endpoint.name}...\nURL: ${endpoint.base}/\n\nWaiting for response...`, 'loading');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(endpoint.base + '/', { 
+                    signal: AbortSignal.timeout(10000) 
+                });
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(0);
+                
+                const text = await response.text();
+                
+                if (response.ok) {
+                    displayResult(resultId, 
+                        `✅ SUCCESS - ${endpoint.name}\n` +
+                        `URL: ${endpoint.base}/\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Response: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`,
+                        'success'
+                    );
+                } else {
+                    displayResult(resultId, 
+                        `❌ FAILED - ${endpoint.name}\n` +
+                        `URL: ${endpoint.base}/\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Response: ${text}`,
+                        'error'
+                    );
+                }
+            } catch (error) {
+                displayResult(resultId, 
+                    `❌ ERROR - ${endpoint.name}\n` +
+                    `URL: ${endpoint.base}/\n` +
+                    `Error: ${error.message}\n` +
+                    `Details: ${error.stack}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testBothHealthChecks() {
+            displayResult('health-result', 'Testing both endpoints...\n', 'loading');
+            
+            const results = [];
+            
+            for (const [key, endpoint] of Object.entries(ENDPOINTS)) {
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(endpoint.base + '/', { 
+                        signal: AbortSignal.timeout(10000) 
+                    });
+                    const endTime = performance.now();
+                    const duration = (endTime - startTime).toFixed(0);
+                    const text = await response.text();
+                    
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.base + '/',
+                        status: response.status,
+                        statusText: response.statusText,
+                        duration: duration,
+                        success: response.ok,
+                        preview: text.substring(0, 100)
+                    });
+                } catch (error) {
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.base + '/',
+                        status: 'ERROR',
+                        statusText: error.message,
+                        duration: 'N/A',
+                        success: false,
+                        preview: ''
+                    });
+                }
+            }
+            
+            let output = '=== HEALTH CHECK COMPARISON ===\n\n';
+            results.forEach(r => {
+                output += `${r.success ? '✅' : '❌'} ${r.name}\n`;
+                output += `   URL: ${r.url}\n`;
+                output += `   Status: ${r.status} ${r.statusText}\n`;
+                output += `   Response Time: ${r.duration}ms\n`;
+                if (r.preview) output += `   Preview: ${r.preview}...\n`;
+                output += '\n';
+            });
+            
+            const allSuccess = results.every(r => r.success);
+            displayResult('health-result', output, allSuccess ? 'success' : 'error');
+        }
+
+        async function testChunkId(backend) {
+            const endpoint = ENDPOINTS[backend];
+            const resultId = 'chunk-result';
+            
+            displayResult(resultId, `Testing ${endpoint.name}...\nURL: ${endpoint.api}/get_chunk_id\n\nWaiting for response...`, 'loading');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(endpoint.api + '/get_chunk_id', { 
+                    signal: AbortSignal.timeout(5000) 
+                });
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(0);
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResult(resultId, 
+                        `✅ SUCCESS - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/get_chunk_id\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Chunk ID: ${data.chunk_id || 'N/A'}\n` +
+                        `Full Response: ${JSON.stringify(data, null, 2)}`,
+                        'success'
+                    );
+                } else {
+                    displayResult(resultId, 
+                        `❌ FAILED - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/get_chunk_id\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Response: ${JSON.stringify(data, null, 2)}`,
+                        'error'
+                    );
+                }
+            } catch (error) {
+                displayResult(resultId, 
+                    `❌ ERROR - ${endpoint.name}\n` +
+                    `URL: ${endpoint.api}/get_chunk_id\n` +
+                    `Error: ${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testBothChunkIds() {
+            displayResult('chunk-result', 'Testing both endpoints...\n', 'loading');
+            
+            const results = [];
+            
+            for (const [key, endpoint] of Object.entries(ENDPOINTS)) {
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(endpoint.api + '/get_chunk_id', { 
+                        signal: AbortSignal.timeout(5000) 
+                    });
+                    const endTime = performance.now();
+                    const duration = (endTime - startTime).toFixed(0);
+                    const data = await response.json();
+                    
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.api + '/get_chunk_id',
+                        status: response.status,
+                        statusText: response.statusText,
+                        duration: duration,
+                        success: response.ok,
+                        chunkId: data.chunk_id || 'N/A',
+                        data: data
+                    });
+                } catch (error) {
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.api + '/get_chunk_id',
+                        status: 'ERROR',
+                        statusText: error.message,
+                        duration: 'N/A',
+                        success: false,
+                        chunkId: 'N/A',
+                        data: null
+                    });
+                }
+            }
+            
+            let output = '=== GET CHUNK ID COMPARISON ===\n\n';
+            results.forEach(r => {
+                output += `${r.success ? '✅' : '❌'} ${r.name}\n`;
+                output += `   URL: ${r.url}\n`;
+                output += `   Status: ${r.status} ${r.statusText}\n`;
+                output += `   Response Time: ${r.duration}ms\n`;
+                output += `   Chunk ID: ${r.chunkId}\n`;
+                if (r.data) output += `   Data: ${JSON.stringify(r.data, null, 2)}\n`;
+                output += '\n';
+            });
+            
+            const allSuccess = results.every(r => r.success);
+            displayResult('chunk-result', output, allSuccess ? 'success' : 'error');
+        }
+
+        async function testStreamAudio(backend) {
+            const endpoint = ENDPOINTS[backend];
+            const resultId = 'stream-result';
+            
+            const requestBody = {
+                network: 'HV',
+                station: 'SBL',
+                location: '',
+                channel: 'HHZ',
+                starttime: new Date(Date.now() - 1800000).toISOString().slice(0, 19), // 30 min ago
+                duration: 1800, // 30 minutes
+                highpass_hz: 0.01,
+                normalize: false,
+                send_raw: false
+            };
+            
+            displayResult(resultId, 
+                `Testing ${endpoint.name}...\n` +
+                `URL: ${endpoint.api}/stream-audio\n` +
+                `Request: ${JSON.stringify(requestBody, null, 2)}\n\n` +
+                `Waiting for response...`, 
+                'loading'
+            );
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(endpoint.api + '/stream-audio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    signal: AbortSignal.timeout(30000) // 30 second timeout
+                });
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(0);
+                
+                if (response.ok) {
+                    const blob = await response.arrayBuffer();
+                    const size = (blob.byteLength / 1024).toFixed(2);
+                    const compression = response.headers.get('X-Compression') || 'none';
+                    
+                    displayResult(resultId, 
+                        `✅ SUCCESS - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/stream-audio\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Data Size: ${size} KB\n` +
+                        `Compression: ${compression}\n` +
+                        `Headers: ${JSON.stringify([...response.headers.entries()], null, 2)}`,
+                        'success'
+                    );
+                } else {
+                    const errorText = await response.text();
+                    displayResult(resultId, 
+                        `❌ FAILED - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/stream-audio\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Error: ${errorText}`,
+                        'error'
+                    );
+                }
+            } catch (error) {
+                displayResult(resultId, 
+                    `❌ ERROR - ${endpoint.name}\n` +
+                    `URL: ${endpoint.api}/stream-audio\n` +
+                    `Error: ${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testBothStreamAudio() {
+            displayResult('stream-result', 'Testing both endpoints (this may take a while)...\n', 'loading');
+            
+            const requestBody = {
+                network: 'HV',
+                station: 'SBL',
+                location: '',
+                channel: 'HHZ',
+                starttime: new Date(Date.now() - 1800000).toISOString().slice(0, 19),
+                duration: 1800,
+                highpass_hz: 0.01,
+                normalize: false,
+                send_raw: false
+            };
+            
+            const results = [];
+            
+            for (const [key, endpoint] of Object.entries(ENDPOINTS)) {
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(endpoint.api + '/stream-audio', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody),
+                        signal: AbortSignal.timeout(30000)
+                    });
+                    const endTime = performance.now();
+                    const duration = (endTime - startTime).toFixed(0);
+                    
+                    if (response.ok) {
+                        const blob = await response.arrayBuffer();
+                        const size = (blob.byteLength / 1024).toFixed(2);
+                        const compression = response.headers.get('X-Compression') || 'none';
+                        
+                        results.push({
+                            name: endpoint.name,
+                            url: endpoint.api + '/stream-audio',
+                            status: response.status,
+                            statusText: response.statusText,
+                            duration: duration,
+                            success: true,
+                            size: size,
+                            compression: compression
+                        });
+                    } else {
+                        const errorText = await response.text();
+                        results.push({
+                            name: endpoint.name,
+                            url: endpoint.api + '/stream-audio',
+                            status: response.status,
+                            statusText: response.statusText,
+                            duration: duration,
+                            success: false,
+                            error: errorText
+                        });
+                    }
+                } catch (error) {
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.api + '/stream-audio',
+                        status: 'ERROR',
+                        statusText: error.message,
+                        duration: 'N/A',
+                        success: false,
+                        error: error.message
+                    });
+                }
+            }
+            
+            let output = '=== STREAM AUDIO COMPARISON ===\n\n';
+            results.forEach(r => {
+                output += `${r.success ? '✅' : '❌'} ${r.name}\n`;
+                output += `   URL: ${r.url}\n`;
+                output += `   Status: ${r.status} ${r.statusText}\n`;
+                output += `   Response Time: ${r.duration}ms\n`;
+                if (r.success) {
+                    output += `   Data Size: ${r.size} KB\n`;
+                    output += `   Compression: ${r.compression}\n`;
+                } else {
+                    output += `   Error: ${r.error}\n`;
+                }
+                output += '\n';
+            });
+            
+            const allSuccess = results.every(r => r.success);
+            displayResult('stream-result', output, allSuccess ? 'success' : 'error');
+        }
+
+        async function testGetChunk(backend) {
+            const endpoint = ENDPOINTS[backend];
+            const resultId = 'full-chunk-result';
+            
+            displayResult(resultId, `Testing ${endpoint.name}...\nURL: ${endpoint.api}/get_chunk\n\nWaiting for response...`, 'loading');
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(endpoint.api + '/get_chunk', { 
+                    signal: AbortSignal.timeout(5000) 
+                });
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(0);
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const sampleCount = data.samples ? data.samples.length : 0;
+                    const samplePreview = data.samples ? data.samples.slice(0, 5) : [];
+                    
+                    displayResult(resultId, 
+                        `✅ SUCCESS - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/get_chunk\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Chunk ID: ${data.chunk_id || 'N/A'}\n` +
+                        `Sample Count: ${sampleCount}\n` +
+                        `Sample Rate: ${data.sample_rate || 'N/A'} Hz\n` +
+                        `Sample Preview: [${samplePreview.join(', ')}...]\n` +
+                        `Full Metadata: ${JSON.stringify({...data, samples: `[${sampleCount} samples]`}, null, 2)}`,
+                        'success'
+                    );
+                } else {
+                    displayResult(resultId, 
+                        `❌ FAILED - ${endpoint.name}\n` +
+                        `URL: ${endpoint.api}/get_chunk\n` +
+                        `Status: ${response.status} ${response.statusText}\n` +
+                        `Response Time: ${duration}ms\n` +
+                        `Response: ${JSON.stringify(data, null, 2)}`,
+                        'error'
+                    );
+                }
+            } catch (error) {
+                displayResult(resultId, 
+                    `❌ ERROR - ${endpoint.name}\n` +
+                    `URL: ${endpoint.api}/get_chunk\n` +
+                    `Error: ${error.message}`,
+                    'error'
+                );
+            }
+        }
+
+        async function testBothGetChunk() {
+            displayResult('full-chunk-result', 'Testing both endpoints...\n', 'loading');
+            
+            const results = [];
+            
+            for (const [key, endpoint] of Object.entries(ENDPOINTS)) {
+                try {
+                    const startTime = performance.now();
+                    const response = await fetch(endpoint.api + '/get_chunk', { 
+                        signal: AbortSignal.timeout(5000) 
+                    });
+                    const endTime = performance.now();
+                    const duration = (endTime - startTime).toFixed(0);
+                    const data = await response.json();
+                    
+                    const sampleCount = data.samples ? data.samples.length : 0;
+                    
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.api + '/get_chunk',
+                        status: response.status,
+                        statusText: response.statusText,
+                        duration: duration,
+                        success: response.ok,
+                        chunkId: data.chunk_id || 'N/A',
+                        sampleCount: sampleCount,
+                        sampleRate: data.sample_rate || 'N/A'
+                    });
+                } catch (error) {
+                    results.push({
+                        name: endpoint.name,
+                        url: endpoint.api + '/get_chunk',
+                        status: 'ERROR',
+                        statusText: error.message,
+                        duration: 'N/A',
+                        success: false,
+                        chunkId: 'N/A',
+                        sampleCount: 0,
+                        sampleRate: 'N/A'
+                    });
+                }
+            }
+            
+            let output = '=== GET FULL CHUNK COMPARISON ===\n\n';
+            results.forEach(r => {
+                output += `${r.success ? '✅' : '❌'} ${r.name}\n`;
+                output += `   URL: ${r.url}\n`;
+                output += `   Status: ${r.status} ${r.statusText}\n`;
+                output += `   Response Time: ${r.duration}ms\n`;
+                output += `   Chunk ID: ${r.chunkId}\n`;
+                output += `   Sample Count: ${r.sampleCount}\n`;
+                output += `   Sample Rate: ${r.sampleRate} Hz\n`;
+                output += '\n';
+            });
+            
+            const allSuccess = results.every(r => r.success);
+            displayResult('full-chunk-result', output, allSuccess ? 'success' : 'error');
+        }
+
+        // Auto-run basic health check on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🌋 API Endpoint Tester loaded');
+            console.log('Ready to test endpoints!');
+        });
+    </script>
+</body>
+</html>
+

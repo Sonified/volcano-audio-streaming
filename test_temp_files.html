@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temp File Monitor</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #00ff00;
+        }
+        h1 {
+            text-align: center;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        .platform {
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+        .platform h2 {
+            margin-top: 0;
+            color: #00ff00;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            margin: 10px 10px 10px 0;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #00cc00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+        button:disabled {
+            background: #444;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .stats {
+            background: #000;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        .stat-line {
+            padding: 5px 0;
+            border-bottom: 1px solid #003300;
+        }
+        .stat-line:last-child {
+            border-bottom: none;
+        }
+        .label {
+            color: #00aa00;
+            display: inline-block;
+            width: 200px;
+        }
+        .value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .file-list {
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .file-item {
+            background: #0a0a0a;
+            border-left: 3px solid #00ff00;
+            padding: 10px;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        .file-name {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .file-details {
+            color: #00aa00;
+            margin-top: 5px;
+        }
+        .error {
+            color: #ff0000;
+            border-color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        .loading {
+            color: #ffff00;
+            border-color: #ffff00;
+        }
+        .warning {
+            background: #331100;
+            border: 1px solid #ff6600;
+            color: #ff9900;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        @media (max-width: 900px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+        .refresh-controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .auto-refresh {
+            color: #00aa00;
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📁 TEMP FILE MONITOR</h1>
+    
+    <div class="warning">
+        ⚠️ <strong>BACKEND ENDPOINT REQUIRED:</strong> This test requires a <code>/api/temp_stats</code> endpoint on your backend.
+        <br><br>
+        Add this to your backend code:
+        <pre style="background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; color: #00ff00;">
+@app.get("/api/temp_stats")
+async def get_temp_stats():
+    import os
+    import tempfile
+    from pathlib import Path
+    import time
+    
+    temp_dir = tempfile.gettempdir()
+    mseed_files = list(Path(temp_dir).glob("*.mseed"))
+    
+    total_size = sum(f.stat().st_size for f in mseed_files if f.exists())
+    
+    return {
+        "temp_directory": temp_dir,
+        "mseed_file_count": len(mseed_files),
+        "total_size_mb": round(total_size / (1024 * 1024), 2),
+        "total_size_bytes": total_size,
+        "files": [
+            {
+                "name": f.name,
+                "size_mb": round(f.stat().st_size / (1024 * 1024), 2),
+                "size_bytes": f.stat().st_size,
+                "age_hours": round((time.time() - f.stat().st_mtime) / 3600, 2),
+                "modified": time.ctime(f.stat().st_mtime)
+            }
+            for f in sorted(mseed_files, key=lambda x: x.stat().st_mtime, reverse=True)
+        ]
+    }</pre>
+    </div>
+
+    <div class="refresh-controls">
+        <button onclick="checkBoth()">🔄 CHECK BOTH PLATFORMS</button>
+        <button onclick="checkRender()">Check Render Only</button>
+        <button onclick="checkRailway()">Check Railway Only</button>
+        <label class="auto-refresh">
+            <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+            Auto-refresh every 5 seconds
+        </label>
+    </div>
+
+    <div class="comparison">
+        <div class="platform">
+            <h2>🟢 RENDER (Current)</h2>
+            <div class="stats" id="render-stats">
+                <div class="stat-line loading">Waiting for data...</div>
+            </div>
+        </div>
+
+        <div class="platform">
+            <h2>🚂 RAILWAY (New)</h2>
+            <div class="stats" id="railway-stats">
+                <div class="stat-line loading">Waiting for data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ENDPOINTS = {
+            render: 'https://volcano-audio.onrender.com/api/temp_stats',
+            railway: 'https://volcano-audio-backend-production.up.railway.app/api/temp_stats'
+        };
+
+        let autoRefreshInterval = null;
+
+        async function checkPlatform(platform) {
+            const statsDiv = document.getElementById(`${platform}-stats`);
+            const url = ENDPOINTS[platform];
+            
+            statsDiv.innerHTML = '<div class="stat-line loading">⏳ Fetching data...</div>';
+            
+            try {
+                const startTime = performance.now();
+                const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(0);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                displayStats(platform, data, duration);
+                
+            } catch (error) {
+                statsDiv.innerHTML = `
+                    <div class="stat-line error">
+                        ❌ ERROR: ${error.message}
+                    </div>
+                    <div class="stat-line error" style="margin-top: 10px; font-size: 11px;">
+                        URL: ${url}<br>
+                        ${error.stack ? 'Stack: ' + error.stack.split('\n')[0] : ''}
+                    </div>
+                `;
+            }
+        }
+
+        function displayStats(platform, data, duration) {
+            const statsDiv = document.getElementById(`${platform}-stats`);
+            
+            let html = `
+                <div class="stat-line">
+                    <span class="label">Response Time:</span>
+                    <span class="value">${duration}ms</span>
+                </div>
+                <div class="stat-line">
+                    <span class="label">Temp Directory:</span>
+                    <span class="value">${data.temp_directory || 'N/A'}</span>
+                </div>
+                <div class="stat-line">
+                    <span class="label">MSEED File Count:</span>
+                    <span class="value">${data.mseed_file_count || 0} files</span>
+                </div>
+                <div class="stat-line">
+                    <span class="label">Total Size:</span>
+                    <span class="value">${data.total_size_mb || 0} MB (${(data.total_size_bytes || 0).toLocaleString()} bytes)</span>
+                </div>
+                <div class="stat-line">
+                    <span class="label">Last Updated:</span>
+                    <span class="value">${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
+            
+            if (data.files && data.files.length > 0) {
+                html += '<div class="file-list">';
+                html += '<div class="stat-line" style="margin-top: 15px; font-weight: bold;">📄 Files (newest first):</div>';
+                
+                data.files.forEach((file, index) => {
+                    html += `
+                        <div class="file-item">
+                            <div class="file-name">${index + 1}. ${file.name}</div>
+                            <div class="file-details">
+                                Size: ${file.size_mb} MB (${file.size_bytes.toLocaleString()} bytes) | 
+                                Age: ${file.age_hours}h | 
+                                Modified: ${file.modified}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            } else {
+                html += '<div class="stat-line" style="margin-top: 15px; color: #00aa00;">✨ No .mseed files found (clean!)</div>';
+            }
+            
+            statsDiv.innerHTML = html;
+        }
+
+        async function checkRender() {
+            await checkPlatform('render');
+        }
+
+        async function checkRailway() {
+            await checkPlatform('railway');
+        }
+
+        async function checkBoth() {
+            await Promise.all([
+                checkPlatform('render'),
+                checkPlatform('railway')
+            ]);
+        }
+
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            if (checkbox.checked) {
+                console.log('🔄 Auto-refresh ENABLED (every 5 seconds)');
+                checkBoth(); // Check immediately
+                autoRefreshInterval = setInterval(checkBoth, 5000);
+            } else {
+                console.log('⏸️ Auto-refresh DISABLED');
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        }
+
+        // Auto-check on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('📁 Temp File Monitor loaded');
+            console.log('Ready to check temp file usage on both platforms!');
+        });
+    </script>
+</body>
+</html>
+
