@@ -611,10 +611,6 @@
             }
         }
         
-        .magma-text {
-            /* Container for magma letters */
-        }
-        
         .magma-letter {
             display: inline-block;
             animation: magmaGlow 6s ease-in-out infinite reverse;
@@ -667,10 +663,10 @@
                     <select id="duration">
                         <option value="0.5">30 minutes</option>
                         <option value="1">1 hour</option>
-                        <option value="2">2 hours</option>
+                        <option value="2" selected>2 hours</option>
                         <option value="4">4 hours</option>
                         <option value="6">6 hours</option>
-                        <option value="12" selected>12 hours</option>
+                        <option value="12">12 hours</option>
                     </select>
                 </div>
                 
@@ -2871,6 +2867,46 @@
             // Start mapping system immediately on page load (for Live Amplitude feature)
             console.log('🚀 Starting mapping system on page load...');
             startMappingSystem();
+        });
+        
+        // ========================================
+        // PAGE VISIBILITY API - PAUSE DATA STREAMING WHEN TAB IS HIDDEN
+        // ========================================
+        // Audio playback continues! Only pauses real-time chunk fetching to save bandwidth
+        
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Tab is now hidden - pause ONLY chunk fetching (audio keeps playing!)
+                console.log('👁️ TAB HIDDEN - Pausing real-time chunk fetching (audio continues)');
+                
+                // Pause mapping system chunk fetching (stop intervals)
+                if (mappingFetchInterval) {
+                    clearInterval(mappingFetchInterval);
+                    mappingFetchInterval = null;
+                    console.log('⏸️ Mapping chunk fetching paused (saves bandwidth)');
+                }
+                
+                if (connectionStatusInterval) {
+                    clearInterval(connectionStatusInterval);
+                    connectionStatusInterval = null;
+                    console.log('⏸️ Connection status updates paused');
+                }
+                
+            } else {
+                // Tab is now visible - resume chunk fetching
+                console.log('👁️ TAB VISIBLE - Resuming real-time chunk fetching');
+                
+                // Resume mapping system chunk fetching
+                if (!mappingFetchInterval && mappingSystemStarted) {
+                    mappingFetchInterval = setInterval(checkForNewMappingChunk, 1000);
+                    console.log('▶️ Mapping chunk fetching resumed');
+                }
+                
+                if (!connectionStatusInterval && mappingSystemStarted) {
+                    connectionStatusInterval = setInterval(updateConnectionIndicator, efficientModeEnabled ? 1000 : 200);
+                    console.log('▶️ Connection status updates resumed');
+                }
+            }
         });
         
         // ========================================
